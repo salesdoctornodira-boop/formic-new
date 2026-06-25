@@ -9,6 +9,10 @@
 <meta http-equiv="Pragma" content="no-cache"/>
 <meta http-equiv="Expires" content="0"/>
 <title>CCS Platform</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png"/>
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"/>
+<link rel="icon" type="image/png" sizes="192x192" href="/favicon.png"/>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -586,6 +590,7 @@ uz:{
   routing_preview_label:'Kimni baholashi shart',routing_people:'kishi',routing_preview_none:"hech kim — zona/loyihani tekshiring",
   scope_hint:"Yangi rollar (CCO, CPO...) uchun zonani aniq tanlang. «Standart» faqat tanish rol nomlarini biladi, aks holda — faqat o'z bo'limi.",
   ov_section:"Ko'rinish va ovozlar",ov_hint:"Bu xodim kimlarni baholashini sozlang. «Majburiy» — odamni qo'shimcha ko'rsatish va ovoz berishga ruxsat; «Yashirish» — ro'yxatdan butunlay olib tashlash va ovozni taqiqlash. «Yashirish» ustun turadi.",ov_search_ph:"Xodimni qidirish…",ov_extra:"Majburiy",ov_block:"Yashirilgan",ov_extra_short:"Majburiy",ov_block_short:"Yashirish",ov_none:"Hech kim topilmadi",ov_search_hint:"Sozlash uchun xodim ismini qidiring",ov_more:"Aniqroq qidiring — natija ko'p",
+  hp_title:"Rahbarlar paneli",hp_hint:"Rahbarni tanlang va u kimlarni baholashini qo'lda belgilang. Qo'lda rejimda rahbar faqat tanlangan odamlarni majburiy baholaydi; qolganlari (Global ham) «Recommended» bo'limida chiqadi.",hp_select:"Rahbarni tanlang…",hp_manual:"Qo'lda baholash ro'yxati",hp_manual_hint:"Yoqilsa: avtomatik zona o'chadi, faqat quyida tanlanganlar majburiy. Global va boshqalar — «Recommended»da.",hp_none_sel:"Sozlash uchun rahbarni tanlang",hp_no_heads:"Rahbarlar yo'q",
   // Code edit-window (resume on any device, change votes within the window)
   edit_votes_title:'Mening baholarim',edit_votes_btn:"Baholarni o'zgartirish",edit_window_left:"O'zgartirish mumkin yana",
   edit_window_closed:"O'zgartirish oynasi yopilgan",min_short:'daq',edit_save:"O'zgarishlarni saqlash",
@@ -723,6 +728,7 @@ ru:{
   routing_preview_label:'Обязан оценить',routing_people:'чел.',routing_preview_none:'никого — проверьте зону/проект',
   scope_hint:'Для новых ролей (CCO, CPO...) выберите зону явно. «По умолчанию» знает только известные названия ролей, иначе — только свой отдел.',
   ov_section:'Видимость и голоса',ov_hint:'Настройте, кого этот сотрудник оценивает. «Обяз.» — дополнительно показать человека и разрешить голос; «Скрыть» — убрать из опроса и запретить голос. «Скрыть» имеет приоритет.',ov_search_ph:'Поиск сотрудника…',ov_extra:'Обязательно',ov_block:'Скрыто',ov_extra_short:'Обяз.',ov_block_short:'Скрыть',ov_none:'Никого не найдено',ov_search_hint:'Найдите сотрудника по имени, чтобы настроить',ov_more:'Уточните поиск — много результатов',
+  hp_title:'Панель руководителей',hp_hint:'Выберите руководителя и вручную задайте, кого он оценивает. В ручном режиме руководитель обязан оценить только выбранных; остальные (включая Global) — в «Recommended».',hp_select:'Выберите руководителя…',hp_manual:'Ручной список оценки',hp_manual_hint:'Если включено: авто-зона отключается, обязательны только выбранные ниже. Global и остальные — в «Recommended».',hp_none_sel:'Выберите руководителя для настройки',hp_no_heads:'Руководителей нет',
   // Code edit-window (resume on any device, change votes within the window)
   edit_votes_title:'Мои оценки',edit_votes_btn:'Изменить мои оценки',edit_window_left:'Можно изменить ещё',
   edit_window_closed:'Окно изменений закрыто',min_short:'мин',edit_save:'Сохранить изменения',
@@ -801,9 +807,14 @@ function getMandatoryTargets(user,emps,cfg={}){
   const isH=user.is_head==1||user.isHead;
   const role=user.head_role||user.headRole||'';
   const scopeMode=user.scope_mode||'';
+  // s17 §4 — a "manual" head (Панель руководителей) has NO auto-derived mandatory set: their scope/role routing is
+  // skipped, Global is NOT forced into their mandatory list, and the explicit rate_extra list (set in the panel) IS
+  // their entire mandatory set. Everything else — incl. Global — falls through to the optional "Recommended" step.
+  const manualHead=isH && (parseInt(user.head_manual)||0)===1;
   let t=[];
   if(isH){
-    if(scopeMode){
+    if(manualHead){ t=[]; }
+    else if(scopeMode){
       // M1 configurable scope — overrides the legacy role switch. Multi-project aware.
       const uProj=new Set(empProjects(user));
       if(scopeMode==='all'){ t=ok; }
@@ -849,7 +860,8 @@ function getMandatoryTargets(user,emps,cfg={}){
   // there). Skippable, unlike globalRatedByAll. globalRatedByAll (default OFF) is the stricter variant: same inclusion
   // PLUS no-skip on Global targets (the skip rule keys on globalRatedByAll only, in SurveyView + server backstop).
   // Either flag includes Global; both respect the head-rating policy for the added targets (same filters as above).
-  if(cfg.globalAlwaysRecommended==='1' || cfg.globalRatedByAll==='1'){
+  // s17 §4: a manual head is EXEMPT — Global stays optional (Recommended) for them, never forced into mandatory.
+  if((cfg.globalAlwaysRecommended==='1' || cfg.globalRatedByAll==='1') && !manualHead){
     let gl=ok.filter(e=>empProjects(e).includes('Global'));
     if(isH){ if(!hre) gl=gl.filter(e=>e.is_head==1); }
     else    {
@@ -2808,6 +2820,71 @@ function ProgressMonitor({theme,t,onBack}){
   );
 }
 
+/* ── HEADS PANEL (Rahbarlar paneli) — per-head MANUAL evaluation routing (s17 §4) ─────────────
+   Superadmin picks a head, flips "manual" ON, and explicitly lists whom that head must evaluate. In manual mode the
+   head's auto scope/role routing is bypassed and Global is NOT forced into their mandatory set (see getMandatoryTargets):
+   only the picked people are mandatory, everything else (incl. Global) falls to the optional "Recommended" step.
+   Reuses the rate_extra (whom they evaluate) / rate_block (hidden) columns; head_manual switches the routing mode. */
+function HeadsPanel({allEmps,saveEmp,theme,t}){
+  const heads=(allEmps||[]).filter(e=>e.is_head==1&&e.active!=0).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const[sel,setSel]=useState('');
+  const[search,setSearch]=useState('');
+  const[saving,setSaving]=useState(false);
+  const head=heads.find(h=>h.id===sel)||null;
+  // Local draft so chip toggles don't hit the network per click — Save commits via save_employee (saveEmp refreshes allEmps).
+  const[draft,setDraft]=useState({manual:0,extra:[],block:[]});
+  useEffect(()=>{
+    setDraft(head?{manual:(parseInt(head.head_manual)||0),extra:jarr(head.rate_extra),block:jarr(head.rate_block)}:{manual:0,extra:[],block:[]});
+    setSearch('');
+  },[sel,head&&head.head_manual,head&&head.rate_extra,head&&head.rate_block]);
+  const iCls=`w-full px-3.5 py-2.5 rounded-xl text-sm border outline-none focus:border-[#00C76E] transition-all ${theme.input} ${theme.txt} ${theme.border}`;
+  const dirty=head&&(draft.manual!==(parseInt(head.head_manual)||0)||JSON.stringify(draft.extra)!==JSON.stringify(jarr(head.rate_extra))||JSON.stringify(draft.block)!==JSON.stringify(jarr(head.rate_block)));
+  const setT=(id,kind)=>setDraft(p=>{const extra=p.extra.filter(x=>x!==id),block=p.block.filter(x=>x!==id);if(kind==='extra')extra.push(id);if(kind==='block')block.push(id);return {...p,extra,block};});
+  const save=async()=>{ if(!head)return; setSaving(true); const payload={...head,head_manual:draft.manual,rate_extra:draft.extra,rate_block:draft.block}; delete payload.has_photo; await saveEmp(payload); setSaving(false); };
+  const selectedSet=new Set([...draft.extra,...draft.block]);
+  const q=search.trim().toLowerCase();
+  const pool=(allEmps||[]).filter(e=>e.active!=0&&head&&e.id!==head.id);
+  const matches=q?pool.filter(e=>!selectedSet.has(e.id)&&((e.name||'').toLowerCase().includes(q)||(e.dept||'').toLowerCase().includes(q))):[];
+  const shown=[...pool.filter(e=>selectedSet.has(e.id)),...matches.slice(0,30)];
+  return(
+    <div className={`${theme.card2} rounded-2xl p-5 border ${theme.border} space-y-4`}>
+      <h3 className={`font-bold ${theme.txt} flex items-center gap-2`}><span className="w-7 h-7 rounded-lg bg-[#F59E0B]/15 flex items-center justify-center flex-shrink-0"><Crown size={16} className="text-[#F59E0B]"/></span>{t.hp_title}</h3>
+      <p className={`text-[11px] leading-4 ${theme.muted}`}>{t.hp_hint}</p>
+      <select value={sel} onChange={e=>setSel(e.target.value)} className={iCls}>
+        <option value="">{t.hp_select}</option>
+        {heads.map(h=><option key={h.id} value={h.id}>{h.name} — {h.dept} · {h.project}{(parseInt(h.head_manual)||0)===1?' ✓':''}</option>)}
+      </select>
+      {!head ? <p className={`text-[11px] ${theme.muted} text-center py-2`}>{heads.length?t.hp_none_sel:t.hp_no_heads}</p> : (<>
+        <div className={`flex items-center justify-between ${theme.input} px-4 py-3 rounded-xl border ${theme.border} gap-3`}>
+          <div className="min-w-0"><span className={`text-sm ${theme.sub}`}>{t.hp_manual}</span><p className={`text-[11px] leading-4 ${theme.muted} mt-0.5`}>{t.hp_manual_hint}</p></div>
+          <Toggle on={draft.manual===1} onChange={()=>setDraft(p=>({...p,manual:p.manual?0:1}))} theme={theme}/>
+        </div>
+        {draft.manual===1&&(<>
+          <div className="relative">
+            <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${theme.muted}`}/>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t.ov_search_ph} className={`${iCls} pl-9`}/>
+          </div>
+          <div className="flex gap-3 text-[11px] font-semibold"><span className="text-[#00C76E]">{t.ov_extra}: {draft.extra.length}</span><span className="text-red-400">{t.ov_block}: {draft.block.length}</span></div>
+          {shown.length>0
+            ? <div className="space-y-1 max-h-52 overflow-y-auto scrollbar pr-0.5">{shown.map(e=>{
+                const isX=draft.extra.includes(e.id),isB=draft.block.includes(e.id);
+                return(<div key={e.id} className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg ${theme.card}`}>
+                  <div className="min-w-0 flex items-center gap-2"><EmpPhoto id={e.id} name={e.name} size={22}/><div className="min-w-0"><div className={`text-xs font-semibold truncate ${theme.txt}`}>{e.name}</div><div className={`text-[10px] truncate ${theme.muted}`}>{e.dept} · {e.project}{e.is_head==1?' · '+t.head_t:''}</div></div></div>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <button type="button" onClick={()=>setT(e.id,isX?'none':'extra')} className={`px-2 py-1 rounded-md text-[10px] font-bold border transition-all ${isX?'bg-[#00C76E] text-white border-[#00C76E]':`${theme.input} ${theme.muted} ${theme.border} hover:border-[#00C76E]/50`}`}>{t.ov_extra_short}</button>
+                    <button type="button" onClick={()=>setT(e.id,isB?'none':'block')} className={`px-2 py-1 rounded-md text-[10px] font-bold border transition-all ${isB?'bg-red-500 text-white border-red-500':`${theme.input} ${theme.muted} ${theme.border} hover:border-red-400/50`}`}>{t.ov_block_short}</button>
+                  </div>
+                </div>);
+              })}</div>
+            : <p className={`text-[11px] ${theme.muted} text-center py-2`}>{q?t.ov_none:t.ov_search_hint}</p>}
+          {q&&matches.length>30&&<p className={`text-[10px] ${theme.muted} text-center`}>{t.ov_more}</p>}
+        </>)}
+        <button onClick={save} disabled={!dirty||saving} className="w-full bg-gradient-to-r from-[#00C76E] to-[#00a85d] text-white font-bold py-2.5 rounded-xl transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2">{saving?<><span className="spinner"/>{t.saving}</>:<><Save size={15}/>{t.save}</>}</button>
+      </>)}
+    </div>
+  );
+}
+
 /* ── ADMIN DASHBOARD ──────────────────────────────────────── */
 function AdminDash({evals,setEvals,voterStats,setVoterStats,settings,setSettings,theme,t,allEmps,setAllEmps,isSuperAdmin,subStats,setSubStats,valuesConfig,setValuesConfig,rules=RULES_DEFAULT,weights=WEIGHTS_DEFAULT,refreshConfig}){
   const{reloadPhotos}=useContext(PhotoCtx);   // B-4: refresh shared photo cache after employee edits
@@ -3261,6 +3338,9 @@ function AdminDash({evals,setEvals,voterStats,setVoterStats,settings,setSettings
                 )}
               </div>
             )}
+
+            {/* s17 §4 — Панель руководителей: per-head MANUAL evaluation routing (overrides auto-scope; Global → Recommended). */}
+            {isSuperAdmin&&<HeadsPanel allEmps={allEmps} saveEmp={saveEmp} theme={theme} t={t}/>}
 
             {/* s14 — platform feature toggles (superadmin). Every s14 feature can be turned on/off here. */}
             {isSuperAdmin&&(

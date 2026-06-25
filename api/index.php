@@ -38,7 +38,7 @@ try {
 // Every statement in the gated blocks is idempotent (CREATE IF NOT EXISTS / guarded ALTER /
 // INSERT OR IGNORE / seed-if-empty), so a single re-run on an existing prod DB is harmless;
 // afterwards normal requests skip all of it. Bump $SCHEMA_VERSION when adding a new migration.
-$SCHEMA_VERSION = 9;   // v3: R2-CODES reveal_log audit table; v4: admin_sessions.auth_token (real session revoke, audit s9); v5: access_codes.project/dept (anonymous dept-pool codes, s11); v6: survey_progress (s14 §3 anonymity-safe progress monitoring); v7: s16 normalize is_executive=1 for CEO/CTO/CCO/CPO (Executive Management category); v8: Req1 seed showExecInRecommended default (Executive Managers hidden from Recommended unless enabled); v9: employees.rate_extra/rate_block (per-employee visibility/voting overrides)
+$SCHEMA_VERSION = 10;   // v3: R2-CODES reveal_log audit table; v4: admin_sessions.auth_token (real session revoke, audit s9); v5: access_codes.project/dept (anonymous dept-pool codes, s11); v6: survey_progress (s14 §3 anonymity-safe progress monitoring); v7: s16 normalize is_executive=1 for CEO/CTO/CCO/CPO (Executive Management category); v8: Req1 seed showExecInRecommended default (Executive Managers hidden from Recommended unless enabled); v9: employees.rate_extra/rate_block (per-employee visibility/voting overrides); v10: employees.head_manual (per-head manual evaluation routing — Панель руководителей)
 $needMigrate = true;
 try { if((int)$db->query("SELECT value FROM settings WHERE key='schema_version'")->fetchColumn() >= $SCHEMA_VERSION) $needMigrate = false; }
 catch (Exception $e) { $needMigrate = true; }   // settings table absent → fresh DB
@@ -109,7 +109,11 @@ $addCols = ['position'=>'TEXT DEFAULT ""','start_date'=>'TEXT DEFAULT ""','end_d
             // rate_extra = people this employee is ADDITIONALLY required to evaluate (force-shown + votable, even if the
             //   auto-routing would hide them); rate_block = people HIDDEN from this employee entirely (never shown in the
             //   survey, and the server rejects any vote cast on them). rate_block wins over rate_extra. Empty = legacy behaviour.
-            'rate_extra'=>'TEXT DEFAULT ""','rate_block'=>'TEXT DEFAULT ""'];
+            'rate_extra'=>'TEXT DEFAULT ""','rate_block'=>'TEXT DEFAULT ""',
+            // s17 §4 — "Панель руководителей": when 1, this HEAD has manual evaluation routing — no auto scope/role
+            // targets and Global is NOT forced into their mandatory set; rate_extra IS their entire mandatory list,
+            // everything else (incl. Global) falls to the optional "Recommended" step. Per-head, opt-in. Heads only.
+            'head_manual'=>'INTEGER DEFAULT 0'];
 foreach($addCols as $col=>$def) if(!in_array($col,$cols)) $safeAlter("ALTER TABLE employees ADD COLUMN $col $def");
 // M1 — evaluator_level on evaluations (exec|linear|''), set server-side at submit; enables weighted exec/linear DCS.
 $ecols = array_column($db->query("PRAGMA table_info(evaluations)")->fetchAll(PDO::FETCH_ASSOC),'name');
@@ -817,8 +821,11 @@ case 'save_employee':
     $isHead=(int)($d['is_head']??0);
     $isExec=$isHead===1?(int)($d['is_executive']??0):0;
     if($isHead!==1){ $scopeMode=''; $scopeProjects=''; $scopeDepts=''; }
-    $ex=$db->prepare("SELECT id,dept,project FROM employees WHERE id=?");$ex->execute([$d['id']]);
+    $ex=$db->prepare("SELECT id,dept,project,head_manual FROM employees WHERE id=?");$ex->execute([$d['id']]);
     $existingRow=$ex->fetch(PDO::FETCH_ASSOC);
+    // s17 §4 — head_manual is heads-only. PRESERVE the stored value when the payload omits the key (EmpProfileModal
+    // doesn't send it; the Панель руководителей does), so editing a head elsewhere never silently disables manual routing.
+    $headManual = $isHead!==1 ? 0 : (array_key_exists('head_manual',$d) ? ((int)$d['head_manual']?1:0) : (int)($existingRow['head_manual']??0));
     if($existingRow){
         $oldDept=(string)$existingRow['dept']; $oldProject=(string)$existingRow['project'];
         // B-4 safety: only overwrite photo when the client explicitly sends the `photo` key. The light
@@ -826,11 +833,11 @@ case 'save_employee':
         // stored one (never wipe). '' is still a valid explicit value (the "Remove photo" action).
         if(array_key_exists('photo',$d)){ $photoVal=(string)($d['photo']??''); }
         else { $pc=$db->prepare("SELECT photo FROM employees WHERE id=?"); $pc->execute([$d['id']]); $photoVal=(string)$pc->fetchColumn(); }
-        $db->prepare("UPDATE employees SET name=?,dept=?,project=?,is_head=?,head_role=?,active=?,position=?,start_date=?,end_date=?,on_probation=?,official_employed=?,phone=?,email=?,birth_date=?,notes=?,photo=?,projects=?,is_executive=?,scope_mode=?,scope_projects=?,scope_depts=?,rate_extra=?,rate_block=? WHERE id=?")
+        $db->prepare("UPDATE employees SET name=?,dept=?,project=?,is_head=?,head_role=?,active=?,position=?,start_date=?,end_date=?,on_probation=?,official_employed=?,phone=?,email=?,birth_date=?,notes=?,photo=?,projects=?,is_executive=?,scope_mode=?,scope_projects=?,scope_depts=?,rate_extra=?,rate_block=?,head_manual=? WHERE id=?")
            ->execute([$name,$dept,$project,$isHead,$headRole,(int)($d['active']??1),
                       $position,$d['start_date']??'',$d['end_date']??'',(int)($d['on_probation']??0),(int)($d['official_employed']??1),
                       $d['phone']??'',$d['email']??'',$d['birth_date']??'',$d['notes']??'',$photoVal,
-                      $projects,$isExec,$scopeMode,$scopeProjects,$scopeDepts,$rateExtra,$rateBlock,$d['id']]);
+                      $projects,$isExec,$scopeMode,$scopeProjects,$scopeDepts,$rateExtra,$rateBlock,$headManual,$d['id']]);
         // AUDIT-RENAME-AUTO (s9): if this edit RENAMED a dept/project and NO active employee remains under the old
         // "project|dept", carry its quota config + counter to the new key so the limit isn't silently orphaned/reset.
         // (Fires only on a true rename — moving one person while others stay leaves the old key populated → no-op.)
@@ -851,11 +858,11 @@ case 'save_employee':
         }
     } else {
         $mo=$db->query("SELECT MAX(sort_order) FROM employees")->fetchColumn()+1;
-        $db->prepare("INSERT INTO employees(id,name,dept,project,is_head,head_role,active,sort_order,position,start_date,end_date,on_probation,official_employed,phone,email,birth_date,notes,photo,projects,is_executive,scope_mode,scope_projects,scope_depts,rate_extra,rate_block) VALUES(?,?,?,?,?,?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+        $db->prepare("INSERT INTO employees(id,name,dept,project,is_head,head_role,active,sort_order,position,start_date,end_date,on_probation,official_employed,phone,email,birth_date,notes,photo,projects,is_executive,scope_mode,scope_projects,scope_depts,rate_extra,rate_block,head_manual) VALUES(?,?,?,?,?,?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
            ->execute([$d['id'],$name,$dept,$project,$isHead,$headRole,$mo,
                       $position,$d['start_date']??'',$d['end_date']??'',(int)($d['on_probation']??0),(int)($d['official_employed']??1),
                       $d['phone']??'',$d['email']??'',$d['birth_date']??'',$d['notes']??'',$d['photo']??'',
-                      $projects,$isExec,$scopeMode,$scopeProjects,$scopeDepts,$rateExtra,$rateBlock]);
+                      $projects,$isExec,$scopeMode,$scopeProjects,$scopeDepts,$rateExtra,$rateBlock,$headManual]);
     }
     echo json_encode(['success'=>true]);break;
 

@@ -38,7 +38,7 @@ try {
 // Every statement in the gated blocks is idempotent (CREATE IF NOT EXISTS / guarded ALTER /
 // INSERT OR IGNORE / seed-if-empty), so a single re-run on an existing prod DB is harmless;
 // afterwards normal requests skip all of it. Bump $SCHEMA_VERSION when adding a new migration.
-$SCHEMA_VERSION = 8;   // v3: R2-CODES reveal_log audit table; v4: admin_sessions.auth_token (real session revoke, audit s9); v5: access_codes.project/dept (anonymous dept-pool codes, s11); v6: survey_progress (s14 §3 anonymity-safe progress monitoring); v7: s16 normalize is_executive=1 for CEO/CTO/CCO/CPO (Executive Management category); v8: Req1 seed showExecInRecommended default (Executive Managers hidden from Recommended unless enabled)
+$SCHEMA_VERSION = 9;   // v3: R2-CODES reveal_log audit table; v4: admin_sessions.auth_token (real session revoke, audit s9); v5: access_codes.project/dept (anonymous dept-pool codes, s11); v6: survey_progress (s14 §3 anonymity-safe progress monitoring); v7: s16 normalize is_executive=1 for CEO/CTO/CCO/CPO (Executive Management category); v8: Req1 seed showExecInRecommended default (Executive Managers hidden from Recommended unless enabled); v9: employees.rate_extra/rate_block (per-employee visibility/voting overrides)
 $needMigrate = true;
 try { if((int)$db->query("SELECT value FROM settings WHERE key='schema_version'")->fetchColumn() >= $SCHEMA_VERSION) $needMigrate = false; }
 catch (Exception $e) { $needMigrate = true; }   // settings table absent → fresh DB
@@ -104,7 +104,12 @@ $addCols = ['position'=>'TEXT DEFAULT ""','start_date'=>'TEXT DEFAULT ""','end_d
             'notes'=>'TEXT DEFAULT ""','photo'=>'TEXT DEFAULT ""',
             // M1 — flexible hierarchy/multi-project. Empty defaults = current behaviour (legacy role switch).
             'projects'=>'TEXT DEFAULT ""','is_executive'=>'INTEGER DEFAULT 0',
-            'scope_mode'=>'TEXT DEFAULT ""','scope_projects'=>'TEXT DEFAULT ""','scope_depts'=>'TEXT DEFAULT ""'];
+            'scope_mode'=>'TEXT DEFAULT ""','scope_projects'=>'TEXT DEFAULT ""','scope_depts'=>'TEXT DEFAULT ""',
+            // s17 §2 — per-employee visibility/voting overrides (superadmin constructor). JSON arrays of employee ids:
+            // rate_extra = people this employee is ADDITIONALLY required to evaluate (force-shown + votable, even if the
+            //   auto-routing would hide them); rate_block = people HIDDEN from this employee entirely (never shown in the
+            //   survey, and the server rejects any vote cast on them). rate_block wins over rate_extra. Empty = legacy behaviour.
+            'rate_extra'=>'TEXT DEFAULT ""','rate_block'=>'TEXT DEFAULT ""'];
 foreach($addCols as $col=>$def) if(!in_array($col,$cols)) $safeAlter("ALTER TABLE employees ADD COLUMN $col $def");
 // M1 — evaluator_level on evaluations (exec|linear|''), set server-side at submit; enables weighted exec/linear DCS.
 $ecols = array_column($db->query("PRAGMA table_info(evaluations)")->fetchAll(PDO::FETCH_ASSOC),'name');
@@ -249,6 +254,18 @@ function cookieSecure(){
     if($env==='1'||strtolower((string)$env)==='true')  return true;
     if($env==='0'||strtolower((string)$env)==='false') return false;
     return isHttps();
+}
+// s17 §3 — share the device-lock cookies (ccs_gen_*/ccs_done_*) across a site's sub-origins so opening the survey from
+// a SECOND URL of the SAME site (apex vs www, or two subdomains of one registrable domain) can't dodge the one-code-per-
+// device lock. Returns the registrable parent with a leading dot (".salesdoc.io"); '' = host-only (current behaviour) for
+// localhost / bare IPs / single-label hosts, where a cross-origin Domain cookie is invalid. Two GENUINELY unrelated
+// domains still can't share state — inherent to the anonymous pool (same residual as incognito/another device).
+function lockCookieDomain(){
+    $host=preg_replace('/:\d+$/','',(string)($_SERVER['HTTP_HOST']??$_SERVER['SERVER_NAME']??''));
+    if($host===''||strcasecmp($host,'localhost')===0||filter_var($host,FILTER_VALIDATE_IP)) return '';
+    $labels=explode('.',$host);
+    if(count($labels)<2) return '';
+    return '.'.implode('.',array_slice($labels,-2));   // last two labels — good enough for 2-label TLDs
 }
 // Real client IP for rate-limiting / audit. Default = REMOTE_ADDR (spoof-proof, current behaviour).
 // Behind a reverse proxy/NAT, set CCS_TRUSTED_PROXIES=ip1,ip2 — then ONLY if the request actually
@@ -782,6 +799,9 @@ case 'save_employee':
     $jenc=function($v){ if(is_array($v)) return json_encode(array_values(array_filter($v,'strlen')),JSON_UNESCAPED_UNICODE);
                         if(is_string($v)&&$v!==''){ $x=json_decode($v,true); return is_array($x)?json_encode(array_values($x),JSON_UNESCAPED_UNICODE):''; } return ''; };
     $projects=$jenc($d['projects']??''); $scopeProjects=$jenc($d['scope_projects']??''); $scopeDepts=$jenc($d['scope_depts']??'');
+    // s17 §2 — per-employee visibility/voting overrides (JSON id arrays). rate_block applies to ANY employee; rate_extra
+    // too (a non-head can be told to additionally evaluate specific people). Both normalize via $jenc like the scope fields.
+    $rateExtra=$jenc($d['rate_extra']??''); $rateBlock=$jenc($d['rate_block']??'');
     $scopeMode=in_array(($d['scope_mode']??''),['','dept','project','all','custom'],true)?($d['scope_mode']??''):'';
     // Constructor hardening: trim the routing-critical text fields. A stray space (" Sales ") would otherwise
     // split a real dept/project into a phantom group and break getMandatoryTargets + analytics grouping.
@@ -806,11 +826,11 @@ case 'save_employee':
         // stored one (never wipe). '' is still a valid explicit value (the "Remove photo" action).
         if(array_key_exists('photo',$d)){ $photoVal=(string)($d['photo']??''); }
         else { $pc=$db->prepare("SELECT photo FROM employees WHERE id=?"); $pc->execute([$d['id']]); $photoVal=(string)$pc->fetchColumn(); }
-        $db->prepare("UPDATE employees SET name=?,dept=?,project=?,is_head=?,head_role=?,active=?,position=?,start_date=?,end_date=?,on_probation=?,official_employed=?,phone=?,email=?,birth_date=?,notes=?,photo=?,projects=?,is_executive=?,scope_mode=?,scope_projects=?,scope_depts=? WHERE id=?")
+        $db->prepare("UPDATE employees SET name=?,dept=?,project=?,is_head=?,head_role=?,active=?,position=?,start_date=?,end_date=?,on_probation=?,official_employed=?,phone=?,email=?,birth_date=?,notes=?,photo=?,projects=?,is_executive=?,scope_mode=?,scope_projects=?,scope_depts=?,rate_extra=?,rate_block=? WHERE id=?")
            ->execute([$name,$dept,$project,$isHead,$headRole,(int)($d['active']??1),
                       $position,$d['start_date']??'',$d['end_date']??'',(int)($d['on_probation']??0),(int)($d['official_employed']??1),
                       $d['phone']??'',$d['email']??'',$d['birth_date']??'',$d['notes']??'',$photoVal,
-                      $projects,$isExec,$scopeMode,$scopeProjects,$scopeDepts,$d['id']]);
+                      $projects,$isExec,$scopeMode,$scopeProjects,$scopeDepts,$rateExtra,$rateBlock,$d['id']]);
         // AUDIT-RENAME-AUTO (s9): if this edit RENAMED a dept/project and NO active employee remains under the old
         // "project|dept", carry its quota config + counter to the new key so the limit isn't silently orphaned/reset.
         // (Fires only on a true rename — moving one person while others stay leaves the old key populated → no-op.)
@@ -831,11 +851,11 @@ case 'save_employee':
         }
     } else {
         $mo=$db->query("SELECT MAX(sort_order) FROM employees")->fetchColumn()+1;
-        $db->prepare("INSERT INTO employees(id,name,dept,project,is_head,head_role,active,sort_order,position,start_date,end_date,on_probation,official_employed,phone,email,birth_date,notes,photo,projects,is_executive,scope_mode,scope_projects,scope_depts) VALUES(?,?,?,?,?,?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+        $db->prepare("INSERT INTO employees(id,name,dept,project,is_head,head_role,active,sort_order,position,start_date,end_date,on_probation,official_employed,phone,email,birth_date,notes,photo,projects,is_executive,scope_mode,scope_projects,scope_depts,rate_extra,rate_block) VALUES(?,?,?,?,?,?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
            ->execute([$d['id'],$name,$dept,$project,$isHead,$headRole,$mo,
                       $position,$d['start_date']??'',$d['end_date']??'',(int)($d['on_probation']??0),(int)($d['official_employed']??1),
                       $d['phone']??'',$d['email']??'',$d['birth_date']??'',$d['notes']??'',$d['photo']??'',
-                      $projects,$isExec,$scopeMode,$scopeProjects,$scopeDepts]);
+                      $projects,$isExec,$scopeMode,$scopeProjects,$scopeDepts,$rateExtra,$rateBlock]);
     }
     echo json_encode(['success'=>true]);break;
 
@@ -934,10 +954,17 @@ case 'submit_evaluation':
     $targetIsHead=(int)($ttr['is_head']??0)===1; $iAmHead=($role==='manager');
     if(!$iAmHead && $targetIsHead && getSetting($db,'allowEmpRateHead','0')!=='1'){ echo tamperJson('rating_not_allowed'); exit(); }
     if($iAmHead && !$targetIsHead && getSetting($db,'allowHeadRateEmp','1')==='0'){ echo tamperJson('rating_not_allowed'); exit(); }
+    // s17 §2 backstop (HIGH): the per-employee override is a real permission boundary, not just a UI hint — a target on
+    // the evaluator's rate_block list is hidden in the survey AND unvotable here, so a DevTools/curl submit can't bypass
+    // it. Keyed on the server-derived $from. Anonymous ac_* holders aren't in the roster → no overrides (returns []).
+    $rbRow=$db->prepare("SELECT rate_block FROM employees WHERE id=?"); $rbRow->execute([$from]);
+    if(in_array((string)$input['to'],jdecodeArr($rbRow->fetchColumn()),true)){ echo tamperJson('rating_not_allowed'); exit(); }
     // HRD R2 skip backstops (multiproject-aware, mirrors frontend). For a code/head session $mr holds the evaluator
     // row; on the anonymous path only the client-claimed $fromProject is known (best-effort, codes-OFF only).
     $gNoSkip=getSetting($db,'globalNoSkip','0')==='1';                                        // Global↔Global skip forbidden
-    $gRatedAll=getSetting($db,'globalRatedByAll','0')==='1';                                  // every Global target needs a real score
+    // s17 §1: globalRatedByAll now forbids skipping a Global target ONLY for a Global evaluator (within Global, no skip).
+    // A NON-Global rater who sees a Global person in their "Highly Recommended" block CAN skip them ("Не могу оценить").
+    $gRatedAll=getSetting($db,'globalRatedByAll','0')==='1';
     $fromInGlobal = (isset($mr)&&$mr) ? rowInGlobal($mr) : ($fromProject==='Global');
     $toInGlobal   = rowInGlobal($ttr);
     $period=getSetting($db,'currentPeriod',date('Y-m'));
@@ -973,7 +1000,7 @@ case 'submit_evaluation':
         $scores[$k]['score']=$sk?0:$sc;
         // HRD R2 backstop: when globalNoSkip is ON a Global member cannot skip a Global colleague (client hides skip
         // too, but the API is the only real guard). Keyed on server-derived $fromProject + DB target project.
-        if($sk && (($gNoSkip && $fromInGlobal && $toInGlobal) || ($gRatedAll && $toInGlobal))){ echo tamperJson('skip_not_allowed',['key'=>$k]);exit(); }
+        if($sk && (($gNoSkip && $fromInGlobal && $toInGlobal) || ($gRatedAll && $fromInGlobal && $toInGlobal))){ echo tamperJson('skip_not_allowed',['key'=>$k]);exit(); }
         $scores[$k]['status']=(!$sk && $sc>=$rules['moderationThreshold']) ? 'pending' : 'approved';
         // Server-side comment-required (mirror frontend caseRequired): a written justification (>5 chars) is
         // mandatory at score>=caseHighReq (HRD R2: 8) or <=caseLow. Otherwise the API/edit-window could store a flag with no reason.
@@ -1308,7 +1335,7 @@ case 'finish_survey':
     // re-generates → vote again" repeat. The cookie holds only a flag, never an identity, so anonymity is preserved.
     // A genuinely different person on a shared device opens incognito (the accepted residual bypass — same tradeoff
     // as the whole anonymous pool; cross-browser/incognito cannot be closed without binding codes to a person).
-    setcookie('ccs_done_'.$period,'1',['expires'=>time()+7776000,'path'=>'/','httponly'=>true,'secure'=>cookieSecure(),'samesite'=>'Lax']);
+    setcookie('ccs_done_'.$period,'1',['expires'=>time()+7776000,'path'=>'/','domain'=>lockCookieDomain(),'httponly'=>true,'secure'=>cookieSecure(),'samesite'=>'Lax']);   // s17 §3: same sub-origin sharing as ccs_gen_
     echo json_encode(['success'=>true]);break;
 
 case 'get_progress':
@@ -1479,8 +1506,13 @@ case 'generate_my_code':
     // passes again and the SAME device may re-generate — the lock self-releases when the code goes inactive.
     $genCk=(string)($_COOKIE['ccs_gen_'.$period]??'');
     if($genCk!==''){
-        $still=$db->prepare("SELECT 1 FROM access_codes WHERE code=? AND period=? AND active=1"); $still->execute([$genCk,$period]);
-        if($still->fetchColumn()){ echo json_encode(['error'=>'already_generated']); break; }
+        // s17 §3 (double-code fix): this device already holds an ACTIVE code → RETURN THE SAME code (idempotent) instead
+        // of issuing a second one or erroring. Any context that shares this httponly cookie — a 2nd tab (same-origin
+        // localStorage/cookies are shared) OR a 2nd URL under the same registrable domain (cookie Domain broadened
+        // below) — therefore gets ONE code, never two. The holder presenting the cookie IS the device that generated it,
+        // so returning its own code leaks nothing.
+        $still=$db->prepare("SELECT project,dept FROM access_codes WHERE code=? AND period=? AND active=1"); $still->execute([$genCk,$period]);
+        if($srow=$still->fetch(PDO::FETCH_ASSOC)){ echo json_encode(['success'=>true,'code'=>$genCk,'project'=>$srow['project'],'dept'=>$srow['dept'],'reused'=>true]); break; }
     }
     // Hybrid device-lock (Req): a browser that already COMPLETED a survey this period may not self-issue another code,
     // even though its previous code is now inactive (the active-code check above no longer fires). Closes the casual
@@ -1519,8 +1551,9 @@ case 'generate_my_code':
     try{
         $db->prepare("INSERT INTO access_codes(code,employee_id,period,active,edited_by_admin,created_at,project,dept) VALUES(?,?,?,1,0,CURRENT_TIMESTAMP,?,?)")->execute([$c,$holder,$period,$proj,$dept]);
     }catch(Exception $e){ echo json_encode(['error'=>'code_unavailable']); break; }   // PK(code,period) race → retry-worthy, treat as unavailable
-    // Device-lock marker: remember THIS code on this device so a 2nd generate is refused while it stays active (90d).
-    setcookie('ccs_gen_'.$period,$c,['expires'=>time()+7776000,'path'=>'/','httponly'=>true,'secure'=>cookieSecure(),'samesite'=>'Lax']);
+    // Device-lock marker: remember THIS code on this device so a 2nd generate reuses it while it stays active (90d).
+    // s17 §3: Domain broadened to the registrable parent so the lock survives across the site's sub-origins.
+    setcookie('ccs_gen_'.$period,$c,['expires'=>time()+7776000,'path'=>'/','domain'=>lockCookieDomain(),'httponly'=>true,'secure'=>cookieSecure(),'samesite'=>'Lax']);
     echo json_encode(['success'=>true,'code'=>$c,'project'=>$proj,'dept'=>$dept]);
     break;
 
@@ -1579,6 +1612,10 @@ case 'update_my_evaluation':
     // vote ON a head when allowEmpRateHead is off (e.g. policy tightened after the original submission).
     $tgh=$db->prepare("SELECT is_head FROM employees WHERE id=?"); $tgh->execute([$to]);
     if((int)($tgh->fetchColumn()?:0)===1 && getSetting($db,'allowEmpRateHead','0')!=='1'){ echo tamperJson('rating_not_allowed'); break; }
+    // s17 §2 backstop: mirror submit_evaluation — editing a vote on a rate_block target is refused too (policy can be
+    // tightened after the original submission, and the edit window must not be an end-run around the block).
+    $rbE=$db->prepare("SELECT rate_block FROM employees WHERE id=?"); $rbE->execute([$me]);
+    if(in_array((string)$to,jdecodeArr($rbE->fetchColumn()),true)){ echo tamperJson('rating_not_allowed'); break; }
     $rules=getRules($db);
     // HRD R2: mirror submit_evaluation's globalNoSkip backstop in the edit window too (server-derived projects).
     $gNoSkip=getSetting($db,'globalNoSkip','0')==='1'; $gRatedAll=getSetting($db,'globalRatedByAll','0')==='1'; $myG=false; $toG=false;
@@ -1599,7 +1636,7 @@ case 'update_my_evaluation':
         if(($existScores[$k]['status']??'')==='rejected') continue;                                   // frozen — keep stored rejected value
         $sk=!empty($sv['skipped']); $sc=isset($sv['score'])?(int)$sv['score']:0;
         if(!$sk && ($sc<1||$sc>10)){ echo tamperJson('bad_score',['key'=>$k]); break 2; }   // s13 #7/#8: non-skipped must be real 1–10 (no covert score:0)
-        if($sk && (($gNoSkip && $myG && $toG) || ($gRatedAll && $toG))){ echo tamperJson('skip_not_allowed',['key'=>$k]); break 2; }
+        if($sk && (($gNoSkip && $myG && $toG) || ($gRatedAll && $myG && $toG))){ echo tamperJson('skip_not_allowed',['key'=>$k]); break 2; }
         $status=(!$sk && $sc>=$rules['moderationThreshold'])?'pending':'approved';
         // Same server-side comment-required guard as submit_evaluation — the edit window can't erase a mandatory justification.
         if(!$sk && $sc>0){

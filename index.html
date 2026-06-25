@@ -585,6 +585,7 @@ uz:{
   // Constructor routing preview — shows whom this person will be REQUIRED to evaluate, live
   routing_preview_label:'Kimni baholashi shart',routing_people:'kishi',routing_preview_none:"hech kim — zona/loyihani tekshiring",
   scope_hint:"Yangi rollar (CCO, CPO...) uchun zonani aniq tanlang. «Standart» faqat tanish rol nomlarini biladi, aks holda — faqat o'z bo'limi.",
+  ov_section:"Ko'rinish va ovozlar",ov_hint:"Bu xodim kimlarni baholashini sozlang. «Majburiy» — odamni qo'shimcha ko'rsatish va ovoz berishga ruxsat; «Yashirish» — ro'yxatdan butunlay olib tashlash va ovozni taqiqlash. «Yashirish» ustun turadi.",ov_search_ph:"Xodimni qidirish…",ov_extra:"Majburiy",ov_block:"Yashirilgan",ov_extra_short:"Majburiy",ov_block_short:"Yashirish",ov_none:"Hech kim topilmadi",ov_search_hint:"Sozlash uchun xodim ismini qidiring",ov_more:"Aniqroq qidiring — natija ko'p",
   // Code edit-window (resume on any device, change votes within the window)
   edit_votes_title:'Mening baholarim',edit_votes_btn:"Baholarni o'zgartirish",edit_window_left:"O'zgartirish mumkin yana",
   edit_window_closed:"O'zgartirish oynasi yopilgan",min_short:'daq',edit_save:"O'zgarishlarni saqlash",
@@ -721,6 +722,7 @@ ru:{
   // Constructor routing preview — shows whom this person will be REQUIRED to evaluate, live
   routing_preview_label:'Обязан оценить',routing_people:'чел.',routing_preview_none:'никого — проверьте зону/проект',
   scope_hint:'Для новых ролей (CCO, CPO...) выберите зону явно. «По умолчанию» знает только известные названия ролей, иначе — только свой отдел.',
+  ov_section:'Видимость и голоса',ov_hint:'Настройте, кого этот сотрудник оценивает. «Обяз.» — дополнительно показать человека и разрешить голос; «Скрыть» — убрать из опроса и запретить голос. «Скрыть» имеет приоритет.',ov_search_ph:'Поиск сотрудника…',ov_extra:'Обязательно',ov_block:'Скрыто',ov_extra_short:'Обяз.',ov_block_short:'Скрыть',ov_none:'Никого не найдено',ov_search_hint:'Найдите сотрудника по имени, чтобы настроить',ov_more:'Уточните поиск — много результатов',
   // Code edit-window (resume on any device, change votes within the window)
   edit_votes_title:'Мои оценки',edit_votes_btn:'Изменить мои оценки',edit_window_left:'Можно изменить ещё',
   edit_window_closed:'Окно изменений закрыто',min_short:'мин',edit_save:'Сохранить изменения',
@@ -860,7 +862,15 @@ function getMandatoryTargets(user,emps,cfg={}){
   // Req1: Executive Managers (is_executive — CEO/CTO/CCO/CPO) are NEVER mandatory. They are removed from Step 1
   // (Required / Highly Recommended / mandatory managers) for EVERYONE. They surface only in the optional Recommended
   // step (Step 2), and only when the platform toggle `showExecInRecommended` is ON (gated in SurveyView's `vol`).
-  return t.filter(e=>e.id!==user.id && !isExecHead(e));
+  let res=t.filter(e=>e.id!==user.id && !isExecHead(e));
+  // s17 §2 — per-employee constructor overrides. rate_extra force-ADDS targets to the mandatory set (visible + votable),
+  // overriding the auto-rules INCLUDING the exec-hidden rule, so an admin can pin anyone. rate_block then REMOVES
+  // targets (hide + forbid). rate_block wins over rate_extra. Server (submit/update) backstops rate_block.
+  const xtra=jarr(user.rate_extra);
+  if(xtra.length){ const have=new Set(res.map(e=>e.id)); xtra.forEach(id=>{ if(id===user.id||have.has(id))return; const e=ok.find(x=>x.id===id); if(e){ res.push(e); have.add(id); } }); }
+  const blk=new Set(jarr(user.rate_block));
+  if(blk.size) res=res.filter(e=>!blk.has(e.id));
+  return res;
 }
 
 /* ── TOP-5 ENTERPRISE TABLE ───────────────────────────────── */
@@ -1019,6 +1029,12 @@ function CodeAuth({onLogin,settings,theme,t,allEmps}){
   const[gen,setGen]=useState('');
   const[forceNew,setForceNew]=useState(false);   // device-lock: explicit "get a new code" override of the "you already have one" panel
   const[err,setErr]=useState('');const[busy,setBusy]=useState(false);
+  // s17 §3 — keep same-origin tabs in sync: if another tab generates & stores the code, reflect it here so this tab
+  // shows the same code instead of issuing a second one (the `storage` event fires only in OTHER tabs of this origin).
+  useEffect(()=>{
+    const onStorage=e=>{ if(e.key===LSK && e.newValue){ setCode(e.newValue); setGen(e.newValue); setForceNew(false); } };
+    window.addEventListener('storage',onStorage); return ()=>window.removeEventListener('storage',onStorage);
+  },[LSK]);
 
   const DEPTS={};allEmps.filter(e=>e.active!=0&&e.is_head!=1).forEach(e=>{if(!DEPTS[e.project])DEPTS[e.project]=new Set();DEPTS[e.project].add(e.dept);});
   const projs=Object.keys(DEPTS);
@@ -1044,7 +1060,13 @@ function CodeAuth({onLogin,settings,theme,t,allEmps}){
     else setErr(t.code_bad);
   };
   const generate=async()=>{
-    if(!proj||!dept)return;setBusy(true);setErr('');
+    if(!proj||!dept)return;
+    // s17 §3 (double-code): if THIS browser already stored a code for the period — e.g. another tab just generated it
+    // (same-origin localStorage is shared) — reuse it instead of issuing a 2nd one. The server is idempotent too (it
+    // returns the same code when the device-lock cookie is present), so this is the fast client-side short-circuit.
+    let pre='';try{pre=localStorage.getItem(LSK)||'';}catch(_){}
+    if(pre){ setGen(pre);setCode(pre);return; }
+    setBusy(true);setErr('');
     // s11: anonymous dept-pool — code is bound to project+dept, never to a name (no self-selection).
     const r=await api('generate_my_code',{project:proj,dept});
     setBusy(false);
@@ -1359,9 +1381,11 @@ function SurveyView({user,setView,setUser,onSubmit,evals,theme,t,allEmps,cfg,rul
   // the mandatory step is done. (The mandatory-before-FINISH rule still holds via `canFinish` on the Finish button.)
   const volClosed=false;
   const sl=search.toLowerCase();
+  const blockSet=new Set(jarr(user.rate_block));   // s17 §2: people the constructor hid from THIS user — gone from Recommended too
   const vol=volClosed?[]:allEmps.filter(e=>
     e.active!=0 &&
     e.id!==user.id &&
+    !blockSet.has(e.id) &&
     !(cfg.allowEmpRateHead!=='1' && e.is_head==1) &&
     !(isExecHead(e) && cfg.showExecInRecommended!=='1') &&   // Req1: Executive Managers hidden from Recommended unless the platform toggle is ON
     !getMandatoryTargets(user,allEmps,cfg).some(m=>m.id===e.id) &&
@@ -1378,11 +1402,12 @@ function SurveyView({user,setView,setUser,onSubmit,evals,theme,t,allEmps,cfg,rul
   const volInDept=selectedDept?volPeers.filter(e=>e.dept===selectedDept):[];
   const info=targetId?allEmps.find(e=>e.id===targetId):null;
   // Skip = only for targets outside own dept+project. HRD R2: (globalNoSkip) Global members can't skip a Global
-  // colleague even across depts; (globalRatedByAll) NOBODY can skip a Global target (everyone must give a real score).
-  // Server backstops both (submit_evaluation/update_my_evaluation).
+  // colleague even across depts. s17 §1: (globalRatedByAll) keeps Global colleagues mandatory ONLY for a Global rater —
+  // a NON-Global user who sees a Global person in their "Highly Recommended" block CAN skip ("Не могу оценить").
+  // Server backstops both (submit_evaluation/update_my_evaluation) with the same bothGlobal gate.
   const targetGlobal=info&&empProjects(info).includes('Global');
   const bothGlobal=targetGlobal&&empProjects(user).includes('Global');
-  const canSkip=info?(!(info.dept===user.dept&&info.project===user.project)&&!(cfg.globalNoSkip==='1'&&bothGlobal)&&!(cfg.globalRatedByAll==='1'&&targetGlobal)):false;
+  const canSkip=info?(!(info.dept===user.dept&&info.project===user.project)&&!(cfg.globalNoSkip==='1'&&bothGlobal)&&!(cfg.globalRatedByAll==='1'&&bothGlobal)):false;
 
   // selectTarget: load draft if exists, else empty. Replaces direct setTargetId calls.
   const selectTarget=useCallback((id)=>{
@@ -1890,9 +1915,12 @@ function EmpProfileModal({emp,onSave,onClose,theme,t,isSuperAdmin,allEmps,cfg={}
     phone:emp.phone||'',email:emp.email||'',birth_date:emp.birth_date||'',notes:emp.notes||'',photo:emp.photo||'',
     // M1 — multi-project + hierarchy scope (jarr handles JSON-string or array)
     projects:jarr(emp.projects),is_executive:parseInt(emp.is_executive)||0,
-    scope_mode:emp.scope_mode||'',scope_projects:jarr(emp.scope_projects),scope_depts:jarr(emp.scope_depts)
+    scope_mode:emp.scope_mode||'',scope_projects:jarr(emp.scope_projects),scope_depts:jarr(emp.scope_depts),
+    // s17 §2 — per-employee visibility/voting overrides (id arrays): rate_extra force-shown+votable, rate_block hidden+blocked
+    rate_extra:jarr(emp.rate_extra),rate_block:jarr(emp.rate_block)
   });
   const[saving,setSaving]=useState(false);
+  const[ovSearch,setOvSearch]=useState('');   // s17 §2 — filter for the override people-picker
   const[photoLoading,setPhotoLoading]=useState(false);
   // B-4: photos aren't in `emp` anymore. Only send `photo` on save if the user actually changed it;
   // otherwise the server keeps the stored one (never wiped). The preview falls back to context by id.
@@ -1906,6 +1934,14 @@ function EmpProfileModal({emp,onSave,onClose,theme,t,isSuperAdmin,allEmps,cfg={}
   },[allEmps]);
   const deptOptions=useMemo(()=>[...new Set((allEmps||[]).filter(e=>e.active!=0).map(e=>e.dept).filter(Boolean))].sort((a,b)=>a.localeCompare(b)),[allEmps]);
   const toggleIn=(field,val)=>setForm(p=>({...p,[field]:p[field].includes(val)?p[field].filter(x=>x!==val):[...p[field],val]}));
+  // s17 §2 — set one employee's override state for a target person: 'extra' (force-show+vote), 'block' (hide+forbid),
+  // or 'none' (clear). rate_extra and rate_block are mutually exclusive per person — picking one drops the other.
+  const setOverride=(id,kind)=>setForm(p=>{
+    const extra=p.rate_extra.filter(x=>x!==id), block=p.rate_block.filter(x=>x!==id);
+    if(kind==='extra') extra.push(id);
+    if(kind==='block') block.push(id);
+    return {...p,rate_extra:extra,rate_block:block};
+  });
   const chipCls=on=>`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${on?'bg-[#00C76E] text-white border-[#00C76E]':`${theme.input} ${theme.sub} ${theme.border} hover:border-[#00C76E]/50`}`;
   const positionOptions=useMemo(()=>{
     const base=[
@@ -2072,6 +2108,49 @@ function EmpProfileModal({emp,onSave,onClose,theme,t,isSuperAdmin,allEmps,cfg={}
                   : <span className="text-amber-500 font-semibold">{t.routing_preview_none}</span>}
               </span>
             </div>
+          </div>
+
+          {/* s17 §2 — per-employee visibility & voting overrides: pin extra targets (force-shown + votable) or hide some
+              people from this employee entirely (removed from the survey + the server rejects any vote on them). */}
+          <div className={`${theme.input} rounded-xl border ${theme.border} p-4 space-y-3`}>
+            <div className={`text-xs font-black uppercase tracking-wider ${theme.muted} flex items-center gap-2`}><Eye size={13} className="text-[#00C76E]"/>{t.ov_section}</div>
+            <p className={`text-[11px] leading-4 ${theme.muted}`}>{t.ov_hint}</p>
+            {(()=>{
+              const selected=new Set([...form.rate_extra,...form.rate_block]);
+              const q=ovSearch.trim().toLowerCase();
+              const pool=(allEmps||[]).filter(e=>e.active!=0&&e.id!==form.id);
+              const sel=pool.filter(e=>selected.has(e.id));
+              const matches=q?pool.filter(e=>!selected.has(e.id)&&((e.name||'').toLowerCase().includes(q)||(e.dept||'').toLowerCase().includes(q))):[];
+              const shown=[...sel,...matches.slice(0,30)];
+              return(<>
+                <div className="relative">
+                  <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${theme.muted}`}/>
+                  <input value={ovSearch} onChange={e=>setOvSearch(e.target.value)} placeholder={t.ov_search_ph} className={`${iCls} pl-9`}/>
+                </div>
+                <div className="flex gap-3 text-[11px] font-semibold">
+                  <span className="text-[#00C76E]">{t.ov_extra}: {form.rate_extra.length}</span>
+                  <span className="text-red-400">{t.ov_block}: {form.rate_block.length}</span>
+                </div>
+                {shown.length>0
+                  ? <div className="space-y-1 max-h-52 overflow-y-auto scrollbar pr-0.5">{shown.map(e=>{
+                      const isX=form.rate_extra.includes(e.id),isB=form.rate_block.includes(e.id);
+                      return(
+                        <div key={e.id} className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg ${theme.card2}`}>
+                          <div className="min-w-0 flex items-center gap-2">
+                            <EmpPhoto id={e.id} name={e.name} size={22}/>
+                            <div className="min-w-0"><div className={`text-xs font-semibold truncate ${theme.txt}`}>{e.name}</div><div className={`text-[10px] truncate ${theme.muted}`}>{e.dept} · {e.project}{e.is_head==1?' · '+t.head_t:''}</div></div>
+                          </div>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <button type="button" onClick={()=>setOverride(e.id,isX?'none':'extra')} className={`px-2 py-1 rounded-md text-[10px] font-bold border transition-all ${isX?'bg-[#00C76E] text-white border-[#00C76E]':`${theme.input} ${theme.muted} ${theme.border} hover:border-[#00C76E]/50`}`}>{t.ov_extra_short}</button>
+                            <button type="button" onClick={()=>setOverride(e.id,isB?'none':'block')} className={`px-2 py-1 rounded-md text-[10px] font-bold border transition-all ${isB?'bg-red-500 text-white border-red-500':`${theme.input} ${theme.muted} ${theme.border} hover:border-red-400/50`}`}>{t.ov_block_short}</button>
+                          </div>
+                        </div>
+                      );
+                    })}</div>
+                  : <p className={`text-[11px] ${theme.muted} text-center py-2`}>{q?t.ov_none:t.ov_search_hint}</p>}
+                {q&&matches.length>30&&<p className={`text-[10px] ${theme.muted} text-center`}>{t.ov_more}</p>}
+              </>);
+            })()}
           </div>
 
           {/* Notes */}

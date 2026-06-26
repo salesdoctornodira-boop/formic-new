@@ -167,6 +167,13 @@ $defaults = [
     'smartAnalytics'=>'1',
     // s14 §2.4 — optional per-dept code-generation cap ('project|dept' => max codes). Empty/absent => cap = headcount.
     'codeLimits'=>'{}',
+    // NAT-tolerant rate limits (office fix): both the code login and the self-gen throttles key on the PUBLIC ip, so a
+    // whole office behind one WiFi/NAT shares a single counter. With the old tight limits (5 fails / 25 gens per 15 min)
+    // a handful of typos — or 26 colleagues issuing codes at once — locked out EVERYONE on that IP. These defaults are
+    // sized for a shared-NAT office; admin can lower them per deployment. login = FAILED attempts only (a correct code
+    // resets the counter), so the ceiling is "typos per IP per window", not total logins. gen counts every issue.
+    'codeLoginRateMax'=>'50','codeLoginRateWindowSec'=>'900','codeLoginRateLockSec'=>'300',
+    'codeGenRateMax'=>'300','codeGenRateWindowSec'=>'900','codeGenRateLockSec'=>'300',
     // Custom value names and descriptions
     'value_commitment_name'=>'Commitment',
     'value_commitment_desc'=>'',
@@ -1471,7 +1478,11 @@ case 'login_with_code':
         issueToken($db,$role,$emp['id']);
         echo json_encode(['success'=>true,'role'=>$role,'employee_id'=>$emp['id'],'name'=>$emp['name'],'dept'=>$emp['dept'],'project'=>$emp['project'],'is_head'=>0,'head_role'=>$emp['head_role'],'deadline'=>$deadline,'secondsLeft'=>($deadline!==null?max(0,$deadline-time()):null),'windowMin'=>$win]);
     } else {
-        $WINDOW=900; $MAX=5; $LOCK=900;   // 5 tries / 15 min, then 15-min lockout
+        // NAT-tolerant: a whole office shares one public IP, so this ceiling counts FAILED attempts (typos) per IP per
+        // window — a correct code resets the counter above. Tunable so admins can tighten per deployment.
+        $WINDOW=(int)jclampNum(getSetting($db,'codeLoginRateWindowSec','900'),60,86400,900);
+        $MAX=(int)jclampNum(getSetting($db,'codeLoginRateMax','50'),5,10000,50);
+        $LOCK=(int)jclampNum(getSetting($db,'codeLoginRateLockSec','300'),30,86400,300);
         if(!$att){ $db->prepare("INSERT INTO login_attempts(ip,cnt,first_at,locked_until) VALUES(?,1,?,0)")->execute([$ip,$now]); }
         else {
             $cnt=(int)$att['cnt']; $first=(int)$att['first_at'];
@@ -1497,7 +1508,11 @@ case 'generate_my_code':
     $gip='gen:'.clientIp(); $gnow=time();
     $gr=$db->prepare("SELECT cnt,first_at,locked_until FROM login_attempts WHERE ip=?"); $gr->execute([$gip]); $gatt=$gr->fetch(PDO::FETCH_ASSOC);
     if($gatt && (int)$gatt['locked_until']>$gnow){ http_response_code(429); echo json_encode(['error'=>'locked','retry_after'=>(int)$gatt['locked_until']-$gnow]); break; }
-    $GWIN=900; $GMAX=25; $GLOCK=900;
+    // NAT-tolerant: this counter increments on EVERY self-issue, and a whole office shares one public IP, so the cap
+    // must exceed office size or the Nth colleague to click «получить код» gets locked out. Tunable per deployment.
+    $GWIN=(int)jclampNum(getSetting($db,'codeGenRateWindowSec','900'),60,86400,900);
+    $GMAX=(int)jclampNum(getSetting($db,'codeGenRateMax','300'),25,100000,300);
+    $GLOCK=(int)jclampNum(getSetting($db,'codeGenRateLockSec','300'),30,86400,300);
     if(!$gatt){ $db->prepare("INSERT INTO login_attempts(ip,cnt,first_at,locked_until) VALUES(?,1,?,0)")->execute([$gip,$gnow]); }
     else { $gc=(int)$gatt['cnt']; $gf=(int)$gatt['first_at']; if($gnow-$gf>$GWIN){ $gc=0; $gf=$gnow; } $gc++; $gl=($gc>=$GMAX)?($gnow+$GLOCK):0;
            $db->prepare("UPDATE login_attempts SET cnt=?,first_at=?,locked_until=? WHERE ip=?")->execute([$gc,$gf,$gl,$gip]); }

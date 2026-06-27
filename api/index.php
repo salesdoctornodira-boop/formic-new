@@ -287,6 +287,10 @@ function clientIp(){
     $remote = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
     $trusted = array_filter(array_map('trim', explode(',', getenv('CCS_TRUSTED_PROXIES') ?: '')));
     if($trusted && in_array($remote, $trusted, true)){
+        // Cloudflare orqasida haqiqiy mehmon IP'si shu yerda — yagona va ishonchli (CF edge to'ldiradi).
+        $cf = trim($_SERVER['HTTP_CF_CONNECTING_IP'] ?? '');
+        if($cf !== '' && filter_var($cf, FILTER_VALIDATE_IP)) return $cf;
+        // Zaxira: X-Forwarded-For'ni o'ngdan chapga yurib, ishonchli hop'larni o'tkazib.
         $parts = array_filter(array_map('trim', explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '')));
         while($parts){ $cand = array_pop($parts); if(!in_array($cand, $trusted, true)) return $cand; }
     }
@@ -725,8 +729,11 @@ case 'get_settings':
     $isSuper=($role==='superadmin');
     $all=$db->query("SELECT key,value FROM settings")->fetchAll(PDO::FETCH_KEY_PAIR);
     $secretKeys=['adminPass','superPass','headPass','anonSecret'];   // never exposed to anyone
-    $adminOnly =['adminLogin','superLogin','deptLimits','codeLimits'];// admin + superadmin
-    $superOnly =['codeAlphabet'];                                    // superadmin only (code-generation detail)
+    $adminOnly =['adminLogin','deptLimits','codeLimits'];            // admin + superadmin
+    // Hardening: superLogin is superadmin-ONLY. A plain admin (or a leaked admin session) must not even learn the
+    // super-admin's login NAME — knowing it is half of the super credential and aids targeted brute force. The super
+    // login is only ever needed on the super-admin's own settings screen, which is already a superadmin session.
+    $superOnly =['superLogin','codeAlphabet'];                       // superadmin only
     $out=[];
     foreach($all as $k=>$v){
         if(in_array($k,$secretKeys,true)) continue;

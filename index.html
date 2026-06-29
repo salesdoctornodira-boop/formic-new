@@ -818,7 +818,9 @@ function getMandatoryTargets(user,emps,cfg={}){
     else if(scopeMode){
       // M1 configurable scope — overrides the legacy role switch. Multi-project aware.
       const uProj=new Set(empProjects(user));
-      if(scopeMode==='all'){ t=ok; }
+      // Req: ONLY the CEO's required list covers the whole company. Any other head whose scope_mode is 'all' is limited
+      // to their own department (their team) — so e.g. CPO no longer gets everyone. (Code rule; DB left unchanged.)
+      if(scopeMode==='all'){ t=(role==='CEO')?ok:ok.filter(e=>e.dept===user.dept&&empProjects(e).some(p=>uProj.has(p))); }
       else if(scopeMode==='project'){ t=ok.filter(e=>empProjects(e).some(p=>uProj.has(p))); }
       else if(scopeMode==='custom'){
         const sp=new Set(jarr(user.scope_projects)), sd=new Set(jarr(user.scope_depts));

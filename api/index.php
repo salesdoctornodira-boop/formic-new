@@ -679,13 +679,11 @@ case 'login':
     // Server-side credential check; issues an httpOnly-cookie session token (F0-1)
     $mode=$input['mode']??'admin';
     $pwd=(string)($input['password']??'');
-    // s13 audit #4: rate-limit the PRIVILEGED password login (admin/super/head) — it was unthrottled, so the
-    // de-anonymization credential could be brute-forced offline-fast. Mirror login_with_code: per-IP, separate 'pw:'
-    // key, 5 tries / 15 min then a 15-min lockout; a correct login clears the counter. (clientIp() is spoof-proof
-    // unless CCS_TRUSTED_PROXIES is set, same as the code throttle.)
-    $lip='pw:'.clientIp(); $lnow=time();
-    $la=$db->prepare("SELECT cnt,first_at,locked_until FROM login_attempts WHERE ip=?"); $la->execute([$lip]); $lar=$la->fetch(PDO::FETCH_ASSOC);
-    if($lar && (int)$lar['locked_until']>$lnow){ http_response_code(429); echo json_encode(['error'=>'locked','retry_after'=>(int)$lar['locked_until']-$lnow]); break; }
+    // NAT-friendly (shared-WiFi office: ≈130 people on ONE public IP): the privileged password login is deliberately
+    // NOT rate-limited and NEVER returns HTTP 429. A per-IP lockout would freeze the WHOLE office the moment a few
+    // colleagues mistype — so a wrong password just returns {"error":"invalid"}, every time, with no lockout. Brute
+    // force is instead made infeasible by credential STRENGTH: admin/super/head use long random passwords (verifyPass
+    // + the rotated secrets), so even an unthrottled guesser cannot get in. KEEP THESE PASSWORDS STRONG.
     $loginOk=false; $resp=['error'=>'invalid'];
     if($mode==='head'){
         $hid=$input['headId']??'';
@@ -703,15 +701,7 @@ case 'login':
             issueToken($db,'admin'); $loginOk=true; $resp=['success'=>true,'role'=>'admin','name'=>'Admin'];
         }
     }
-    if($loginOk){
-        $db->prepare("DELETE FROM login_attempts WHERE ip=?")->execute([$lip]);   // reset throttle on success
-    } else {
-        $LW=900; $LM=5; $LL=900;
-        if(!$lar){ $db->prepare("INSERT INTO login_attempts(ip,cnt,first_at,locked_until) VALUES(?,1,?,0)")->execute([$lip,$lnow]); }
-        else { $lc=(int)$lar['cnt']; $lf=(int)$lar['first_at']; if($lnow-$lf>$LW){ $lc=0; $lf=$lnow; } $lc++; $ll=($lc>=$LM)?($lnow+$LL):0;
-               $db->prepare("UPDATE login_attempts SET cnt=?,first_at=?,locked_until=? WHERE ip=?")->execute([$lc,$lf,$ll,$lip]); }
-    }
-    echo json_encode($resp);
+    echo json_encode($resp);   // no per-IP lockout (shared-NAT office) — strong passwords are the brute-force defense
     break;
 
 case 'logout':
@@ -1435,9 +1425,9 @@ case 'login_with_code':
     // Identity (id/role) comes ENTIRELY from the server; the client only proves it holds a valid code.
     $cfg=codeCfg($db);
     if(!$cfg['enabled']){ echo json_encode(['error'=>'disabled']); break; }
-    $ip=clientIp(); $now=time();
-    $ar=$db->prepare("SELECT cnt,first_at,locked_until FROM login_attempts WHERE ip=?"); $ar->execute([$ip]); $att=$ar->fetch(PDO::FETCH_ASSOC);
-    if($att && (int)$att['locked_until']>$now){ http_response_code(429); echo json_encode(['error'=>'locked','retry_after'=>(int)$att['locked_until']-$now]); break; }
+    // NAT-friendly: NO 429 lockout here. Employees (≈130) all log in by code through ONE office IP, so a per-IP
+    // code-login lockout would freeze the whole company over a handful of mistyped codes. A wrong/expired code always
+    // returns {"error":"invalid"} instead. (Abuse is structurally bounded: one active code per dept slot per period.)
     $code=normCode($input['code']??'',$cfg['caseSensitive']);
     $period=getSetting($db,'currentPeriod',date('Y-m'));
     $ok=false; $emp=null;
@@ -1464,7 +1454,6 @@ case 'login_with_code':
         $win=(int)jclampNum(getSetting($db,'codeEditWindowMin','120'),0,1440,120);
         $deadline=codeClaimDeadline($db,$emp['id'],$period,$win);
         if($win>0 && $deadline!==null && time()>=$deadline){ echo json_encode(['error'=>'code_expired']); break; }
-        $db->prepare("DELETE FROM login_attempts WHERE ip=?")->execute([$ip]);   // reset throttle on success
         $role='employee';                                                        // code login is always a peer (heads excluded above)
         // s14 §2.2 — "one code = one device". A code's holder id (ac_*) is unique per code, so a holder having a live
         // auth_session means the code is already logged in somewhere. codeDeviceMode: 'kick' (default) = newest login
@@ -1485,19 +1474,7 @@ case 'login_with_code':
         issueToken($db,$role,$emp['id']);
         echo json_encode(['success'=>true,'role'=>$role,'employee_id'=>$emp['id'],'name'=>$emp['name'],'dept'=>$emp['dept'],'project'=>$emp['project'],'is_head'=>0,'head_role'=>$emp['head_role'],'deadline'=>$deadline,'secondsLeft'=>($deadline!==null?max(0,$deadline-time()):null),'windowMin'=>$win]);
     } else {
-        // NAT-tolerant: a whole office shares one public IP, so this ceiling counts FAILED attempts (typos) per IP per
-        // window — a correct code resets the counter above. Tunable so admins can tighten per deployment.
-        $WINDOW=(int)jclampNum(getSetting($db,'codeLoginRateWindowSec','900'),60,86400,900);
-        $MAX=(int)jclampNum(getSetting($db,'codeLoginRateMax','50'),5,10000,50);
-        $LOCK=(int)jclampNum(getSetting($db,'codeLoginRateLockSec','300'),30,86400,300);
-        if(!$att){ $db->prepare("INSERT INTO login_attempts(ip,cnt,first_at,locked_until) VALUES(?,1,?,0)")->execute([$ip,$now]); }
-        else {
-            $cnt=(int)$att['cnt']; $first=(int)$att['first_at'];
-            if($now-$first>$WINDOW){ $cnt=0; $first=$now; }
-            $cnt++; $lock=($cnt>=$MAX)?($now+$LOCK):0;
-            $db->prepare("UPDATE login_attempts SET cnt=?,first_at=?,locked_until=? WHERE ip=?")->execute([$cnt,$first,$lock,$ip]);
-        }
-        echo json_encode(['error'=>'invalid']);
+        echo json_encode(['error'=>'invalid']);   // wrong/expired code → honest error, never a per-IP lockout (see above)
     }
     break;
 
@@ -1510,19 +1487,10 @@ case 'generate_my_code':
     // headcount automatically (≤1 active code per employee).
     $cfg=codeCfg($db);
     if(!$cfg['enabled']){ echo json_encode(['error'=>'disabled']); break; }
-    // Rate-limit per IP against scripted batch code-harvesting (audit R2-CODES). Lenient + NAT-tolerant:
-    // counted under a separate "gen:" key so it never collides with login_with_code's throttle. ~25 / 15 min.
-    $gip='gen:'.clientIp(); $gnow=time();
-    $gr=$db->prepare("SELECT cnt,first_at,locked_until FROM login_attempts WHERE ip=?"); $gr->execute([$gip]); $gatt=$gr->fetch(PDO::FETCH_ASSOC);
-    if($gatt && (int)$gatt['locked_until']>$gnow){ http_response_code(429); echo json_encode(['error'=>'locked','retry_after'=>(int)$gatt['locked_until']-$gnow]); break; }
-    // NAT-tolerant: this counter increments on EVERY self-issue, and a whole office shares one public IP, so the cap
-    // must exceed office size or the Nth colleague to click «получить код» gets locked out. Tunable per deployment.
-    $GWIN=(int)jclampNum(getSetting($db,'codeGenRateWindowSec','900'),60,86400,900);
-    $GMAX=(int)jclampNum(getSetting($db,'codeGenRateMax','300'),25,100000,300);
-    $GLOCK=(int)jclampNum(getSetting($db,'codeGenRateLockSec','300'),30,86400,300);
-    if(!$gatt){ $db->prepare("INSERT INTO login_attempts(ip,cnt,first_at,locked_until) VALUES(?,1,?,0)")->execute([$gip,$gnow]); }
-    else { $gc=(int)$gatt['cnt']; $gf=(int)$gatt['first_at']; if($gnow-$gf>$GWIN){ $gc=0; $gf=$gnow; } $gc++; $gl=($gc>=$GMAX)?($gnow+$GLOCK):0;
-           $db->prepare("UPDATE login_attempts SET cnt=?,first_at=?,locked_until=? WHERE ip=?")->execute([$gc,$gf,$gl,$gip]); }
+    // NAT-friendly: code self-issue is NOT rate-limited / never returns HTTP 429. The whole office (≈130 people on one
+    // public IP) generates codes around the same time, so a per-IP gen cap would lock out the Nth colleague to click
+    // «получить код». Abuse is bounded STRUCTURALLY instead: exactly ONE active code per (employee/dept slot) per period
+    // (UNIQUE index) + the per-device cookie lock below, so extra requests can't manufacture extra ballots.
     // s11 (anonymous dept-pool): bind a code to PROJECT+DEPT, never to a person. No name is taken, so a peer
     // vote's author can never be established — full anonymity by design (HRD decision).
     $proj=trim((string)($input['project']??'')); $dept=trim((string)($input['dept']??''));

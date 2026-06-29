@@ -1,0 +1,21 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ccs
+    restart: unless-stopped
+    ports:
+      - "8090:80"
+    volumes:
+      # SQLite ma'lumotlar bazasini saqlab qolish uchun (data/ccs.db)
+      - ccs-data:/var/www/html/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost/index.html"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  ccs-data:

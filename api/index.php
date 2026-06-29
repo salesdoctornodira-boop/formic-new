@@ -496,6 +496,34 @@ function ccsExportData($db,$reveal){
     }
     return ['header'=>$header,'rows'=>$out];
 }
+// Dependency-free ZIP writer (no ZipArchive — production PHP lacks the zip extension, which made .xlsx export fail with
+// "zip_unavailable"). Builds a valid ZIP: DEFLATE entries when zlib is present (smaller), else STORED (method 0) so it
+// works EVERYWHERE. Needs only crc32()/pack(). $files = ['path/in/zip' => 'contents', ...]. Returns the .zip bytes.
+function ccsZipBytes($files){
+    $useDeflate=function_exists('gzdeflate');
+    $local=''; $central=''; $offset=0; $dosTime=0; $dosDate=33;   // fixed valid timestamp 1980-01-01 00:00:00
+    foreach($files as $name=>$data){
+        $name=(string)$name; $data=(string)$data;
+        $crc=crc32($data); $ulen=strlen($data);
+        if($useDeflate){ $comp=gzdeflate($data,6); if($comp===false){ $comp=$data; $method=0; } else { $method=8; } }
+        else { $comp=$data; $method=0; }
+        $clen=strlen($comp);
+        $lh=pack('V',0x04034b50).pack('v',20).pack('v',0).pack('v',$method)
+            .pack('v',$dosTime).pack('v',$dosDate)
+            .pack('V',$crc).pack('V',$clen).pack('V',$ulen)
+            .pack('v',strlen($name)).pack('v',0).$name;
+        $local.=$lh.$comp;
+        $central.=pack('V',0x02014b50).pack('v',20).pack('v',20).pack('v',0).pack('v',$method)
+            .pack('v',$dosTime).pack('v',$dosDate)
+            .pack('V',$crc).pack('V',$clen).pack('V',$ulen)
+            .pack('v',strlen($name)).pack('v',0).pack('v',0)
+            .pack('v',0).pack('v',0).pack('V',0).pack('V',$offset).$name;
+        $offset+=strlen($lh)+$clen;
+    }
+    $eocd=pack('V',0x06054b50).pack('v',0).pack('v',0).pack('v',count($files)).pack('v',count($files))
+        .pack('V',strlen($central)).pack('V',strlen($local)).pack('v',0);
+    return $local.$central.$eocd;
+}
 // s14 §4.4 — minimal, dependency-free .xlsx (Office Open XML = a zip of XML; PHP ships ZipArchive). Strings go in as
 // inlineStr (always text → formula-injection-immune by construction), numbers as <v>. No styles/sharedStrings = small
 // and Excel/Sheets-compatible. Returns the .xlsx bytes.
@@ -527,16 +555,14 @@ function ccsXlsx($header,$rows){
     $rels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'."\n".'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
     $wb='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'."\n".'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Evaluations" sheetId="1" r:id="rId1"/></sheets></workbook>';
     $wbr='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'."\n".'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>';
-    $tmp=tempnam(sys_get_temp_dir(),'ccsx'); $zip=new ZipArchive();
-    $zip->open($tmp, ZipArchive::OVERWRITE);
-    $zip->addFromString('[Content_Types].xml',$ct);
-    $zip->addFromString('_rels/.rels',$rels);
-    $zip->addFromString('xl/workbook.xml',$wb);
-    $zip->addFromString('xl/_rels/workbook.xml.rels',$wbr);
-    $zip->addFromString('xl/worksheets/sheet1.xml',$sheet);
-    $zip->close();
-    $bytes=file_get_contents($tmp); @unlink($tmp);
-    return $bytes;
+    // dependency-free packaging (no ZipArchive) so the export works on servers without the PHP zip extension.
+    return ccsZipBytes([
+        '[Content_Types].xml'=>$ct,
+        '_rels/.rels'=>$rels,
+        'xl/workbook.xml'=>$wb,
+        'xl/_rels/workbook.xml.rels'=>$wbr,
+        'xl/worksheets/sheet1.xml'=>$sheet,
+    ]);
 }
 // caseHighReq = score at/above which a written case is MANDATORY; decoupled from caseHigh (green/color/moderation).
 // Default == caseHigh → legacy behaviour. HRD R2: caseHighReq=8 (case at 8) while green/moderation stay 9.
@@ -935,7 +961,7 @@ case 'submit_evaluation':
         if(!$acr){ echo json_encode(['error'=>'inactive']); exit(); }
         // Timer-from-claim (HRD s13): the code's survey window is `win` minutes from issuance — once elapsed the code
         // is dead, so new votes are refused too (mirror of login/update). Heads (manager branch) never reach here.
-        $cwin=(int)jclampNum(getSetting($db,'codeEditWindowMin','120'),0,1440,120);
+        $cwin=(int)jclampNum(getSetting($db,'codeEditWindowMin','120'),0,43200,120);
         $cdl=codeClaimDeadline($db,$from,$curPeriod,$cwin);
         if($cwin>0 && $cdl!==null && time()>=$cdl){ echo json_encode(['error'=>'code_expired']); exit(); }
         $me=$db->prepare("SELECT dept,project,projects,active FROM employees WHERE id=?"); $me->execute([$from]); $mr=$me->fetch(PDO::FETCH_ASSOC);
@@ -1384,7 +1410,23 @@ case 'get_progress':
         $out[]=['project'=>$p,'dept'=>$d,'headcount'=>$h,'claimed'=>$claimed,'completed'=>$completed,'in_progress'=>$inprog,'not_started'=>$notStarted];
     }
     usort($out,function($a,$b){ return $a['project']===$b['project']?strcmp($a['dept'],$b['dept']):strcmp($a['project'],$b['project']); });
-    echo json_encode(['success'=>true,'data'=>$out,'period'=>$period]);break;
+    // Req: HEADS (руководители) tracked SEPARATELY (never mixed into the IC dept bars above). Same anonymity model —
+    // counts only per project|dept, no names. Heads' progress rows are written by save_progress/finish_survey keyed to
+    // the head's OWN dept/project. (JOIN, not LEFT JOIN: real heads are always in the roster.)
+    $hhc=[]; foreach($db->query("SELECT project,dept,COUNT(*) c FROM employees WHERE active=1 AND is_head=1 GROUP BY project,dept") as $r){ $hhc[$r['project'].'|'.$r['dept']]=(int)$r['c']; }
+    $hcomp=[]; $hprog=[]; $hps=$db->prepare("SELECT sp.project,sp.dept,sp.status,COUNT(*) c FROM survey_progress sp JOIN employees e ON e.id=sp.holder WHERE sp.period=? AND e.is_head=1 GROUP BY sp.project,sp.dept,sp.status"); $hps->execute([$period]);
+    foreach($hps as $r){ $k=$r['project'].'|'.$r['dept']; if($r['status']==='completed') $hcomp[$k]=(int)$r['c']; else $hprog[$k]=(int)$r['c']; }
+    $heads=[];
+    foreach(array_unique(array_merge(array_keys($hhc),array_keys($hcomp),array_keys($hprog))) as $k){
+        if($allow!==null && !in_array($k,$allow,true)) continue;   // a manager only sees head-groups inside their scope
+        $pp=explode('|',$k,2); $p=$pp[0]; $d=$pp[1]??'';
+        if($p===''&&$d==='') continue;
+        $h=$hhc[$k]??0; $completed=$hcomp[$k]??0; $inprog=$hprog[$k]??0;
+        $started=$completed+$inprog; $notStarted=max(0,$h-$started);
+        $heads[]=['project'=>$p,'dept'=>$d,'headcount'=>$h,'claimed'=>0,'completed'=>$completed,'in_progress'=>$inprog,'not_started'=>$notStarted];
+    }
+    usort($heads,function($a,$b){ return $a['project']===$b['project']?strcmp($a['dept'],$b['dept']):strcmp($a['project'],$b['project']); });
+    echo json_encode(['success'=>true,'data'=>$out,'heads'=>$heads,'period'=>$period]);break;
 
 case 'get_birthdays':
     requireRole($db,['admin']);
@@ -1414,7 +1456,6 @@ case 'export_xlsx':
     $xSess = requireRole($db,['admin']);
     $reveal = (($_GET['deanon'] ?? '')==='1');
     if($reveal){ $rsx=requireRole($db,['superadmin']); $db->prepare("INSERT INTO reveal_log(action,period,by_role,by_ip) VALUES('bulk_export_xlsx',?,?,?)")->execute([getSetting($db,'currentPeriod',date('Y-m')),$rsx['role']??'superadmin',clientIp()]); }
-    if(!class_exists('ZipArchive')){ http_response_code(500); echo json_encode(['error'=>'zip_unavailable']); break; }
     $data = ccsExportData($db,$reveal);
     $bytes = ccsXlsx($data['header'],$data['rows']);
     header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -1454,7 +1495,7 @@ case 'login_with_code':
     if($ok){
         // Timer-from-claim (HRD s13): the code is valid only `win` minutes from when it was issued. Past that it's
         // dead — no re-entry, no re-survey (HRD: "повторный опрос невозможен"). Block login on an expired code.
-        $win=(int)jclampNum(getSetting($db,'codeEditWindowMin','120'),0,1440,120);
+        $win=(int)jclampNum(getSetting($db,'codeEditWindowMin','120'),0,43200,120);
         $deadline=codeClaimDeadline($db,$emp['id'],$period,$win);
         if($win>0 && $deadline!==null && time()>=$deadline){ echo json_encode(['error'=>'code_expired']); break; }
         $role='employee';                                                        // code login is always a peer (heads excluded above)
@@ -1566,7 +1607,7 @@ case 'get_my_evaluations':
     $rows=$db->prepare("SELECT id,eval_to,to_dept,scores,created_at FROM evaluations WHERE eval_from=? AND period=? ORDER BY created_at ASC");
     $rows->execute([$me,$period]); $rows=$rows->fetchAll(PDO::FETCH_ASSOC);
     foreach($rows as &$r2){ $r2['scores']=json_decode($r2['scores'],true); } unset($r2);
-    $win=(int)jclampNum(getSetting($db,'codeEditWindowMin','120'),0,1440,120);
+    $win=(int)jclampNum(getSetting($db,'codeEditWindowMin','120'),0,43200,120);
     // Timer-from-claim (HRD s13): window runs from when the code was issued, not the first submission.
     $deadline=codeClaimDeadline($db,$me,$period,$win);
     $editable=($win>0 && $deadline!==null && time()<$deadline);
@@ -1579,7 +1620,7 @@ case 'update_my_evaluation':
     $sess=currentSession($db);
     $me=$sess['employee_id']??null;
     if(!$me){ http_response_code(403); echo json_encode(['error'=>'forbidden']); break; }
-    $win=(int)jclampNum(getSetting($db,'codeEditWindowMin','120'),0,1440,120);
+    $win=(int)jclampNum(getSetting($db,'codeEditWindowMin','120'),0,43200,120);
     if($win<=0){ echo json_encode(['error'=>'edit_disabled']); break; }
     $period=getSetting($db,'currentPeriod',date('Y-m'));
     // Audit s12 (#9/#15): a code holder may edit ONLY while their binding is still valid — mirror submit_evaluation.
@@ -1798,7 +1839,7 @@ case 'save_config':
         $arr['_updatedAt']=time();
         setSetting($db,$key,json_encode($arr,JSON_UNESCAPED_UNICODE));
     } else if($key==='codeEditWindowMin'){
-        setSetting($db,$key,(string)(int)jclampNum($val,0,1440,120)); // 0..24h
+        setSetting($db,$key,(string)(int)jclampNum($val,0,43200,120)); // 0..720h (30 days)
     } else if($key==='codeLength'){
         setSetting($db,$key,(string)(int)jclampNum($val,6,12,6));   // server minimum 6 (brute-force floor)
     } else if($key==='codeAlphabet'){

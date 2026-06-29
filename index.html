@@ -450,7 +450,7 @@ function poolScore(subset,rj,weights,empById){
 }
 function parseAllConfigs(settings){ return {rules:parseRules(settings),weights:parseWeights(settings)}; }
 // s14: localized human duration for code-window labels — "5 ч" / "90 мин" / "2 ч 30 мин" (RU) / "soat"/"daqiqa" (UZ).
-function fmtDur(min,t){ min=Math.max(0,Math.round(min||0)); const h=Math.floor(min/60),m=min%60; const H=(t&&t.unit_h)||'ч',M=(t&&t.unit_min)||'мин'; if(h&&m)return h+' '+H+' '+m+' '+M; if(h)return h+' '+H; return m+' '+M; }
+function fmtDur(min,t){ min=Math.max(0,Math.round(min||0)); const d=Math.floor(min/1440),h=Math.floor((min%1440)/60),m=min%60; const D=(t&&t.unit_d)||'д',H=(t&&t.unit_h)||'ч',M=(t&&t.unit_min)||'мин'; if(d)return d+' '+D+(h?' '+h+' '+H:''); if(h&&m)return h+' '+H+' '+m+' '+M; if(h)return h+' '+H; return m+' '+M; }
 // Generic settings merge (M5): every key from the backend flows into state; a few are coerced to keep
 // existing truthiness (isSurveyActive boolean) and sane defaults for missing toggles.
 function mergeSettings(prev,data){
@@ -518,7 +518,7 @@ uz:{
   vred:"Aynan nima buzilgan? Aniq holatni yozing va misol keltiring.",
   vneutral:"Xohishga ko'ra izoh",vgreen:"Kuchli keys: inson aynan nima qildi? Aniq holat va misol.",
   submit:'Bahoni yuborish',
-  t_dash:'Analitika',t_adv:'Kengaytirilgan',t_det:"Batafsil",t_mod:'Moderatsiya',m_score:'Ball',m_votes:'Ovozlar',m_sum:"Yig'indi",m_coverage:'Qamrov %',tip_metric:'Ranjlash metrikasini tanlang: Ball (DCS), Ovozlar (soni), Yigindi (barcha ballar) yoki Qamrov % (olingan/maksimal mumkin — katta va kichik bolimlarni teng solishtiradi).',t_progress:'Jarayon',progress_title:"To'ldirish jarayoni",mon_overall:"Kompaniya bo'yicha",mon_completed:'yakunladi',mon_inprogress:'jarayonda',mon_notstarted:'boshlamagan',mon_codes:'Kodlar berilgan',mon_team:'Jamoam jarayoni',
+  t_dash:'Analitika',t_adv:'Kengaytirilgan',t_det:"Batafsil",t_mod:'Moderatsiya',m_score:'Ball',m_votes:'Ovozlar',m_sum:"Yig'indi",m_coverage:'Qamrov %',tip_metric:'Ranjlash metrikasini tanlang: Ball (DCS), Ovozlar (soni), Yigindi (barcha ballar) yoki Qamrov % (olingan/maksimal mumkin — katta va kichik bolimlarni teng solishtiradi).',t_progress:'Jarayon',progress_title:"To'ldirish jarayoni",mon_overall:"Kompaniya bo'yicha",mon_completed:'yakunladi',mon_inprogress:'jarayonda',mon_notstarted:'boshlamagan',mon_codes:'Kodlar berilgan',mon_heads:"Rahbarlar",mon_team:'Jamoam jarayoni',
   t_red:"Qizil bayroqlar",t_emp:"Xodimlar",t_prot:'Himoya',t_set:'Sozlamalar',t_bday:"Tug'ilgan kunlar",t_sess:'Sessiyalar',
   dept_dcs:'DCS reytingi',overall:"Umumiy reyting",rank:"O'rin",emp:'Xodim',evals:'Baholar',avg_s:"O'rtacha",
   mod_q:'Moderatsiya navbati',approve:'Tasdiqlash',reject:"Bekor qilish (5 gacha)",
@@ -576,7 +576,7 @@ uz:{
   codes_hint:"Xodimlar kodni o'zlari yaratadi. Bu yerda — bo'limlar bo'yicha progress va kodni tiklash. Baholar konfidensial; muallifni faqat super-admin ocha oladi (jurnalga yoziladi).",code_count:'Kodlar',
   codes_progress:"Bo'limlar progressi",codes_claimed:'kod oldi',codes_recovery:"Anketani tiklash / o'chirish (HR)",codes_reset_btn:'Yangi kod berish',codes_newcode:'Yangi kod',codes_reveal_log:'Ochish jurnali',rec_targets_hint:"Xodim kimlarni aytsa, belgilang (yaxshisi — boshqa bo'lim odamlari: ID aniqroq topiladi).",rec_find:'Anketani topish',rec_rated_word:'Baholagan',rec_delete:"O'chirish va slotni bo'shatish",rec_none:"Moslik topilmadi — yana kimnidir aytishini so'rang (ayniqsa boshqa bo'limdan).",rec_deleted:"O'chirildi. Slot bo'shadi — xodim yangi kod olishi mumkin.",rec_search_ph:"Xodimni ism bo'yicha qidirish…",rec_confirm:"Ushbu anonim anketa va uning BARCHA baholari butunlay o'chirilsinmi? Slot bo'shaydi, xodim yangi kod olishi mumkin.",rec_candidates:'Topilgan anketalar',rec_selected:'Tanlangan',rec_found:'Anketa topildi',rec_ambiguous:"Bir nechta anketa topildi ({n}) — yana odamlarni ayting, ayniqsa boshqa bo'limdan.",
   code_login_lbl:'Kirish kodi',code_login_btn:'Kod bilan kirish',code_or:'yoki',code_bad:"Kod noto'g'ri yoki bloklangan",
-  code_get:"Kodimni olish",code_have:"Menda kod bor",code_saved_warn:"Bu kodni hozir albatta saqlang. U boshqa ko'rsatilmaydi va uni interfeysda tiklab bo'lmaydi.",code_warn_title:"⚠️ DIQQAT!",unit_h:"soat",unit_min:"daqiqa",code_pool_full:"Bu bo'lim uchun barcha kodlar allaqachon berilgan. HRga murojaat qiling.",code_anon_note:"Ism kerak emas — kod anonim va bo'limga bog'langan. Keyin baholaringizni o'zgartirish uchun uni saqlang.",code_already:"Bu bo'lim uchun kod berib bo'lmadi. HRga murojaat qiling.",code_yourcode:"Sizning kodingiz",code_use:"Shu kod bilan kirish",code_already_generated:"Siz bu davrda shu qurilmada kod oldingiz. «Menda kod bor» dan foydalaning.",code_already_done:"Bu qurilmada siz bu davrda so'rovnomani allaqachon yakunlagansiz. Agar siz boshqa xodim bo'lsangiz — saytni inkognito rejimida yoki o'z qurilmangizda oching.",code_have_already:'Sizda bu davr uchun kod bor',code_get_new:'Yangi kod olish',code_timer_warn:"Siz kod oldingiz. So'rovnomaga {min} beriladi — shundan so'ng kod ishlamay qoladi va so'rovnomani qayta o'tish imkonsiz. Boshlash uchun bosing.",code_timer_label:'Kod faol',code_expired_short:'Vaqt tugadi',code_expired:"Vaqt tugadi — so'rovnoma oynasi yopildi (o'tish uchun cheklangan vaqt beriladi). Bu kod bilan qayta kirish imkonsiz.",code_in_use:"Bu kod boshqa qurilmada ishlatilmoqda. So'rovnomani o'sha qurilmada davom ettiring.",code_kicked:"Tizimdan chiqdingiz: bu kod boshqa qurilmada ochildi. Bir kod — bitta qurilma. Davom etish uchun qaytadan kiring.",
+  code_get:"Kodimni olish",code_have:"Menda kod bor",code_saved_warn:"Bu kodni hozir albatta saqlang. U boshqa ko'rsatilmaydi va uni interfeysda tiklab bo'lmaydi.",code_warn_title:"⚠️ DIQQAT!",unit_d:"kun",unit_h:"soat",unit_min:"daqiqa",code_pool_full:"Bu bo'lim uchun barcha kodlar allaqachon berilgan. HRga murojaat qiling.",code_anon_note:"Ism kerak emas — kod anonim va bo'limga bog'langan. Keyin baholaringizni o'zgartirish uchun uni saqlang.",code_already:"Bu bo'lim uchun kod berib bo'lmadi. HRga murojaat qiling.",code_yourcode:"Sizning kodingiz",code_use:"Shu kod bilan kirish",code_already_generated:"Siz bu davrda shu qurilmada kod oldingiz. «Menda kod bor» dan foydalaning.",code_already_done:"Bu qurilmada siz bu davrda so'rovnomani allaqachon yakunlagansiz. Agar siz boshqa xodim bo'lsangiz — saytni inkognito rejimida yoki o'z qurilmangizda oching.",code_have_already:'Sizda bu davr uchun kod bor',code_get_new:'Yangi kod olish',code_timer_warn:"Siz kod oldingiz. So'rovnomaga {min} beriladi — shundan so'ng kod ishlamay qoladi va so'rovnomani qayta o'tish imkonsiz. Boshlash uchun bosing.",code_timer_label:'Kod faol',code_expired_short:'Vaqt tugadi',code_expired:"Vaqt tugadi — so'rovnoma oynasi yopildi (o'tish uchun cheklangan vaqt beriladi). Bu kod bilan qayta kirish imkonsiz.",code_in_use:"Bu kod boshqa qurilmada ishlatilmoqda. So'rovnomani o'sha qurilmada davom ettiring.",code_kicked:"Tizimdan chiqdingiz: bu kod boshqa qurilmada ochildi. Bir kod — bitta qurilma. Davom etish uchun qaytadan kiring.",
   save_progress:'Saqlash',finish:'Yakunlash',finish_locked:"Avval Required + Highly Recommended to'ldiring",save_done:'Saqlandi',
   survey_paused_alert:"So'rov to'xtatilgan — baholar saqlanmadi. Keyinroq urinib ko'ring.",submit_partial_fail:"Ba'zi baholar saqlanmadi. Qoralamalar saqlandi — qayta urinib ko'ring.",submit_blocked:"Ba'zi baholar qabul qilinmadi (bo'lim limiti yoki deaktivatsiya) — bu qoralamalar saqlandi, lekin hisobga olinmaydi.",
   tamper_msg:"HR bo'limi tizimni chetlab o'tishga urinayotganingizdan afsusda. U buzish uchun emas, balki halol va anonim baholash uchun yaratilgan. Iltimos, shunchaki so'rovnomadan o'ting. Rahmat! 🙏",
@@ -656,7 +656,7 @@ ru:{
   },
   vred:'Что именно нарушено? Опишите конкретный случай и приведите пример.',vneutral:'Комментарий (по желанию)',vgreen:'Сильный кейс: что именно человек сделал? Конкретная ситуация и пример.',
   submit:'Отправить оценку',
-  t_dash:'Аналитика',t_adv:'Расш. аналитика',t_det:'Детальный отчёт',t_mod:'Модерация',m_score:'Балл',m_votes:'Голоса',m_sum:'Сумма',m_coverage:'Охват %',tip_metric:'Выберите метрику ранжирования: Балл (DCS), Голоса (число), Сумма (всех оценок) или Охват % (получено/макс. возможное — честно сравнивает большие и маленькие отделы).',t_progress:'Прогресс',progress_title:'Прогресс заполнения',mon_overall:'Всего по компании',mon_completed:'завершили',mon_inprogress:'в процессе',mon_notstarted:'не начали',mon_codes:'Коды выданы',mon_team:'Прогресс команды',
+  t_dash:'Аналитика',t_adv:'Расш. аналитика',t_det:'Детальный отчёт',t_mod:'Модерация',m_score:'Балл',m_votes:'Голоса',m_sum:'Сумма',m_coverage:'Охват %',tip_metric:'Выберите метрику ранжирования: Балл (DCS), Голоса (число), Сумма (всех оценок) или Охват % (получено/макс. возможное — честно сравнивает большие и маленькие отделы).',t_progress:'Прогресс',progress_title:'Прогресс заполнения',mon_overall:'Всего по компании',mon_completed:'завершили',mon_inprogress:'в процессе',mon_notstarted:'не начали',mon_codes:'Коды выданы',mon_heads:'Руководители',mon_team:'Прогресс команды',
   t_red:'Красные флаги',t_emp:'Сотрудники',t_prot:'Защита',t_set:'Настройки',t_bday:'Дни рождения',t_sess:'Сессии',
   dept_dcs:'Рейтинг DCS',overall:'Общий рейтинг',rank:'Место',emp:'Сотрудник',evals:'Оценок',avg_s:'Средний',
   mod_q:'Очередь модерации',approve:'Подтвердить',reject:'Отклонить (до 5)',
@@ -714,7 +714,7 @@ ru:{
   codes_hint:'Сотрудники генерируют коды сами. Здесь — прогресс по отделам и восстановление кода. Оценки конфиденциальны; автора может раскрыть только супер-админ (с записью в журнал).',code_count:'Коды',
   codes_progress:'Прогресс по отделам',codes_claimed:'получили код',codes_recovery:'Восстановление / удаление анкеты (HR)',codes_reset_btn:'Выдать новый код',codes_newcode:'Новый код',codes_reveal_log:'Журнал раскрытий',rec_targets_hint:'Отметьте, кого сотрудник назвал (лучше — людей из других отделов: так ID определяется точнее).',rec_find:'Найти анкету',rec_rated_word:'Оценил',rec_delete:'Удалить и освободить слот',rec_none:'Совпадений не найдено — попросите назвать ещё кого-то (особенно из других отделов).',rec_deleted:'Удалено. Слот освобождён — сотрудник может получить новый код.',rec_search_ph:'Поиск сотрудника по имени…',rec_confirm:'Удалить эту анонимную анкету и ВСЕ её оценки безвозвратно? Слот освободится, сотрудник сможет получить новый код.',rec_candidates:'Найденные анкеты',rec_selected:'Выбрано',rec_found:'Найдена анкета',rec_ambiguous:'Найдено несколько анкет ({n}) — назовите ещё людей, особенно из других отделов.',
   code_login_lbl:'Код доступа',code_login_btn:'Войти по коду',code_or:'или',code_bad:'Неверный код или блокировка',
-  code_get:'Получить мой код',code_have:'У меня есть код',code_saved_warn:'Обязательно сохраните этот код сейчас. Больше он не будет показан, и восстановить его в интерфейсе невозможно.',code_warn_title:'⚠️ ВНИМАНИЕ!',unit_h:'ч',unit_min:'мин',code_pool_full:'Все коды этого отдела уже выданы. Обратитесь к HR.',code_anon_note:'Имя не нужно — код анонимный и привязан к отделу. Сохраните его, чтобы потом изменить свои оценки.',code_already:'Не удалось выдать код для этого отдела. Обратитесь к HR.',code_yourcode:'Ваш код',code_use:'Войти с этим кодом',code_already_generated:'Вы уже получили код в этом периоде на этом устройстве. Используйте «У меня есть код».',code_already_done:'С этого устройства уже завершён опрос в этом периоде. Если вы другой сотрудник — откройте сайт в режиме инкогнито или на своём устройстве.',code_have_already:'У вас уже есть код на этот период',code_get_new:'Получить новый код',code_timer_warn:'Вы получили код. На опрос даётся {min} — после этого код перестаёт действовать, и повторно пройти опрос будет нельзя. Нажмите, чтобы начать.',code_timer_label:'Код активен',code_expired_short:'Время вышло',code_expired:'Время вышло — окно опроса закрыто (на прохождение даётся ограниченное время). Повторный вход по этому коду невозможен.',code_in_use:'Этот код уже используется на другом устройстве. Продолжите опрос на том устройстве.',code_kicked:'Вы вышли из системы: этот код открыли на другом устройстве. Один код — одно устройство. Войдите снова, чтобы продолжить.',
+  code_get:'Получить мой код',code_have:'У меня есть код',code_saved_warn:'Обязательно сохраните этот код сейчас. Больше он не будет показан, и восстановить его в интерфейсе невозможно.',code_warn_title:'⚠️ ВНИМАНИЕ!',unit_d:'дн',unit_h:'ч',unit_min:'мин',code_pool_full:'Все коды этого отдела уже выданы. Обратитесь к HR.',code_anon_note:'Имя не нужно — код анонимный и привязан к отделу. Сохраните его, чтобы потом изменить свои оценки.',code_already:'Не удалось выдать код для этого отдела. Обратитесь к HR.',code_yourcode:'Ваш код',code_use:'Войти с этим кодом',code_already_generated:'Вы уже получили код в этом периоде на этом устройстве. Используйте «У меня есть код».',code_already_done:'С этого устройства уже завершён опрос в этом периоде. Если вы другой сотрудник — откройте сайт в режиме инкогнито или на своём устройстве.',code_have_already:'У вас уже есть код на этот период',code_get_new:'Получить новый код',code_timer_warn:'Вы получили код. На опрос даётся {min} — после этого код перестаёт действовать, и повторно пройти опрос будет нельзя. Нажмите, чтобы начать.',code_timer_label:'Код активен',code_expired_short:'Время вышло',code_expired:'Время вышло — окно опроса закрыто (на прохождение даётся ограниченное время). Повторный вход по этому коду невозможен.',code_in_use:'Этот код уже используется на другом устройстве. Продолжите опрос на том устройстве.',code_kicked:'Вы вышли из системы: этот код открыли на другом устройстве. Один код — одно устройство. Войдите снова, чтобы продолжить.',
   save_progress:'Сохранить',finish:'Завершить',finish_locked:'Сначала заполните Required + Highly Recommended',save_done:'Сохранено',
   survey_paused_alert:'Опрос приостановлен — оценки не сохранены. Попробуйте позже.',submit_partial_fail:'Часть оценок не сохранена. Черновики сохранены — попробуйте ещё раз.',submit_blocked:'Часть оценок не принята (лимит отдела или деактивация) — эти черновики сохранены, но не будут учтены.',
   tamper_msg:'Отдел HR сожалеет, что вы пытаетесь обойти систему. Она создавалась не для взлома, а для честной и анонимной оценки. Пожалуйста, просто пройдите опрос. Спасибо! 🙏',
@@ -2765,7 +2765,8 @@ function AnalyticsView({evals,voterStats,allEmps,theme,t,rules=RULES_DEFAULT,wei
 // only: completed / in-progress / not-started per project|dept + a stacked bar. No names — cannot tell WHO is behind.
 function ProgressMonitor({theme,t,onBack}){
   const[rows,setRows]=useState(null);
-  useEffect(()=>{api('get_progress').then(r=>setRows(r&&r.success?(r.data||[]):[])).catch(()=>setRows([]));},[]);
+  const[heads,setHeads]=useState([]);
+  useEffect(()=>{api('get_progress').then(r=>{setRows(r&&r.success?(r.data||[]):[]);setHeads(r&&r.success?(r.heads||[]):[]);}).catch(()=>{setRows([]);setHeads([]);});},[]);
   const Bar=({c,p,n})=>{const s=Math.max(1,c+p+n);return(
     <div className="flex h-2.5 rounded-full overflow-hidden bg-slate-400/15 mt-2">
       <div style={{width:(c/s*100)+'%'}} className="bg-[#00C76E]" title={t.mon_completed}/>
@@ -2823,6 +2824,31 @@ function ProgressMonitor({theme,t,onBack}){
               </div>
             </div>
           ))}
+          {/* Req: heads (руководители) shown SEPARATELY from the IC dept bars */}
+          {heads.length>0&&(()=>{
+            const ht=heads.reduce((a,r)=>({hc:a.hc+r.headcount,c:a.c+r.completed,p:a.p+r.in_progress,n:a.n+r.not_started}),{hc:0,c:0,p:0,n:0});
+            return(
+              <div className="space-y-3">
+                <h3 className={`text-sm font-black ${theme.txt} flex items-center gap-1.5`}><Crown size={14} className="text-yellow-500"/>{t.mon_heads} <span className={`text-xs font-semibold ${theme.muted}`}>({ht.c} / {ht.hc})</span></h3>
+                <div className="space-y-3">
+                  {heads.map(r=>(
+                    <div key={r.project+'|'+r.dept} className={`${theme.card2} rounded-2xl p-4 border ${theme.border}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className={`text-sm font-bold ${theme.txt}`}>{r.project} · {r.dept}</span>
+                        <span className={`text-sm font-black ${theme.txt}`}>{r.completed}<span className={`text-xs font-semibold ${theme.muted}`}> / {r.headcount}</span></span>
+                      </div>
+                      <Bar c={r.completed} p={r.in_progress} n={r.not_started}/>
+                      <div className={`flex items-center gap-3 text-[11px] ${theme.muted} mt-2 flex-wrap`}>
+                        <span className="text-[#00C76E] font-bold">✓ {r.completed} {t.mon_completed}</span>
+                        <span className="text-amber-500 font-bold">◐ {r.in_progress} {t.mon_inprogress}</span>
+                        <span>○ {r.not_started} {t.mon_notstarted}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>);
        })()}
     </div>
@@ -2992,7 +3018,7 @@ function AdminDash({evals,setEvals,voterStats,setVoterStats,settings,setSettings
   const toggleSetting=async key=>{const nv=settings[key]==='1'?'0':'1';await api('save_settings',{[key]:nv});setSettings(p=>({...p,[key]:nv}));pingConfig();};
   const setDeviceMode=async m=>{await api('save_settings',{codeDeviceMode:m});setSettings(p=>({...p,codeDeviceMode:m}));pingConfig();};   // s14 §2.2 kick/block
   const setEmpRateHeadScope=async m=>{await api('save_settings',{empRateHeadScope:m});setSettings(p=>({...p,empRateHeadScope:m}));pingConfig();};   // s16 §1 all|direct
-  const setCodeLife=async h=>{const m=Math.max(1,Math.min(24,parseInt(h)||5))*60;await api('save_config',{key:'codeEditWindowMin',value:m});setSettings(p=>({...p,codeEditWindowMin:String(m)}));pingConfig();};   // s14 §2.1 code lifetime (hours→min)
+  const setCodeLife=async h=>{const m=Math.max(1,Math.min(720,parseInt(h)||5))*60;await api('save_config',{key:'codeEditWindowMin',value:m});setSettings(p=>({...p,codeEditWindowMin:String(m)}));pingConfig();};   // code lifetime (hours→min); up to 720h (30 days)
 
   const surveyTabs=[
     ['dash',BarChart3,t.t_dash,null],
@@ -3394,10 +3420,10 @@ function AdminDash({evals,setEvals,voterStats,setVoterStats,settings,setSettings
             {isSuperAdmin&&settings.codeLoginEnabled==='1'&&(
               <div className={`${theme.card2} rounded-2xl p-5 border ${theme.border}`}>
                 <h3 className={`font-bold ${theme.txt} mb-2 flex items-center gap-2`}><span className="w-7 h-7 rounded-lg bg-[#00C76E]/15 flex items-center justify-center flex-shrink-0"><Lock size={16} className="text-[#00C76E]"/></span>{t.code_limits_title}</h3>
-                {/* s14 §2.1 — code lifetime control (the red corner timer), editable in HOURS (1–24) */}
+                {/* code lifetime control (the red corner timer), editable in HOURS (1–720 = up to 30 days) */}
                 <div className={`flex items-center justify-between ${theme.input} px-4 py-3 rounded-xl border ${theme.border} mb-4 gap-3`}>
                   <span className={`text-sm ${theme.sub} flex items-center gap-2`}><Clock size={15} className="text-[#00C76E]"/>{t.code_life_h}</span>
-                  <input type="number" min="1" max="24" defaultValue={Math.max(1,Math.round((parseInt(settings.codeEditWindowMin||'300',10))/60))} onBlur={e=>setCodeLife(e.target.value)} className={`w-20 px-2 py-1.5 rounded-lg text-center text-sm font-bold border outline-none focus:border-[#00C76E] ${theme.card2} ${theme.txt} ${theme.border}`}/>
+                  <input type="number" min="1" max="720" defaultValue={Math.max(1,Math.round((parseInt(settings.codeEditWindowMin||'300',10))/60))} onBlur={e=>setCodeLife(e.target.value)} className={`w-20 px-2 py-1.5 rounded-lg text-center text-sm font-bold border outline-none focus:border-[#00C76E] ${theme.card2} ${theme.txt} ${theme.border}`}/>
                 </div>
                 <p className={`text-xs ${theme.muted} mb-4`}>{t.code_limits_hint}</p>
                 <CodeLimitsTable settings={settings} allEmps={allEmps} theme={theme} t={t} refreshConfig={refreshConfig}/>

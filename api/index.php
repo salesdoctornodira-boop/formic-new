@@ -957,7 +957,7 @@ case 'submit_evaluation':
         $role='employee';
     }
     if($from===$input['to']){echo json_encode(['error'=>'self_rate']);exit();}              // cannot rate yourself
-    $tt=$db->prepare("SELECT id,project,projects,is_head FROM employees WHERE id=? AND active=1"); $tt->execute([$input['to']]);
+    $tt=$db->prepare("SELECT id,dept,project,projects,is_head FROM employees WHERE id=? AND active=1"); $tt->execute([$input['to']]);
     $ttr=$tt->fetch(PDO::FETCH_ASSOC);
     if(!$ttr){echo tamperJson('invalid_target');exit();}                                       // target must be a real active employee (UI never offers a non-existent one)
     // audit s9 (HIGH): enforce the voting-rights policy SERVER-SIDE — the allowEmpRateHead/allowHeadRateEmp toggles
@@ -1009,9 +1009,12 @@ case 'submit_evaluation':
         // score). 0 is only valid WITH skipped:true.
         if(!$sk && ($sc<1||$sc>10)){ echo tamperJson('bad_score',['key'=>$k]);exit(); }
         $scores[$k]['score']=$sk?0:$sc;
-        // HRD R2 backstop: when globalNoSkip is ON a Global member cannot skip a Global colleague (client hides skip
-        // too, but the API is the only real guard). Keyed on server-derived $fromProject + DB target project.
-        if($sk && (($gNoSkip && $fromInGlobal && $toInGlobal) || ($gRatedAll && $fromInGlobal && $toInGlobal))){ echo tamperJson('skip_not_allowed',['key'=>$k]);exit(); }
+        // Req (C): a Global person who appears in "Highly Recommended" (a DIFFERENT dept+project) is skippable like any
+        // other Highly-Recommended target. The globalNoSkip/globalRatedByAll no-skip now applies ONLY to an own-team
+        // (Required) Global colleague — i.e. same dept AND project. Mirrors SurveyView canSkip. Server-derived
+        // $fromDept/$fromProject + DB target dept/project; the API stays the real guard.
+        if($sk && ($gNoSkip||$gRatedAll) && $fromInGlobal && $toInGlobal
+            && (string)($ttr['dept']??'')===(string)$fromDept && (string)($ttr['project']??'')===(string)$fromProject){ echo tamperJson('skip_not_allowed',['key'=>$k]);exit(); }
         $scores[$k]['status']=(!$sk && $sc>=$rules['moderationThreshold']) ? 'pending' : 'approved';
         // Server-side comment-required (mirror frontend caseRequired): a written justification (>5 chars) is
         // mandatory at score>=caseHighReq (HRD R2: 8) or <=caseLow. Otherwise the API/edit-window could store a flag with no reason.
@@ -1614,13 +1617,16 @@ case 'update_my_evaluation':
     $rbE=$db->prepare("SELECT rate_block FROM employees WHERE id=?"); $rbE->execute([$me]);
     if(in_array((string)$to,jdecodeArr($rbE->fetchColumn()),true)){ echo tamperJson('rating_not_allowed'); break; }
     $rules=getRules($db);
-    // HRD R2: mirror submit_evaluation's globalNoSkip backstop in the edit window too (server-derived projects).
+    // Req (C): mirror submit_evaluation's skip rule in the edit window — a Global "Highly Recommended" target (a
+    // DIFFERENT dept+project) is skippable; the globalNoSkip/globalRatedByAll no-skip applies ONLY to an own-team
+    // (Required) Global colleague (same dept AND project). Server-derived dept/project for editor + target.
     $gNoSkip=getSetting($db,'globalNoSkip','0')==='1'; $gRatedAll=getSetting($db,'globalRatedByAll','0')==='1'; $myG=false; $toG=false;
-    if($gNoSkip||$gRatedAll){ $pq=$db->prepare("SELECT id,project,projects FROM employees WHERE id IN (?,?)"); $pq->execute([$me,$to]);
-        foreach($pq->fetchAll(PDO::FETCH_ASSOC) as $pr){ $g=rowInGlobal($pr); if($pr['id']===$me)$myG=$g; if($pr['id']===$to)$toG=$g; }
-        // s11: an anonymous dept-pool holder (ac_*) isn't in the roster — derive its Global membership from the
-        // code's bound project so the edit window enforces globalNoSkip exactly like submit_evaluation does.
-        if(strpos((string)$me,'ac_')===0){ $acp=$db->prepare("SELECT project FROM access_codes WHERE employee_id=? AND active=1 AND period=?"); $acp->execute([$me,$period]); $myG=((string)$acp->fetchColumn()==='Global'); } }
+    $myDept=''; $myProj=''; $toDept=''; $toProj='';
+    if($gNoSkip||$gRatedAll){ $pq=$db->prepare("SELECT id,dept,project,projects FROM employees WHERE id IN (?,?)"); $pq->execute([$me,$to]);
+        foreach($pq->fetchAll(PDO::FETCH_ASSOC) as $pr){ $g=rowInGlobal($pr); if($pr['id']===$me){$myG=$g;$myDept=(string)$pr['dept'];$myProj=(string)$pr['project'];} if($pr['id']===$to){$toG=$g;$toDept=(string)$pr['dept'];$toProj=(string)$pr['project'];} }
+        // s11: an anonymous dept-pool holder (ac_*) isn't in the roster — derive its Global membership + dept/project
+        // from the code's bound dept/project so the edit window enforces the rule exactly like submit_evaluation does.
+        if(strpos((string)$me,'ac_')===0){ $acp=$db->prepare("SELECT dept,project FROM access_codes WHERE employee_id=? AND active=1 AND period=?"); $acp->execute([$me,$period]); if($ar=$acp->fetch(PDO::FETCH_ASSOC)){ $myG=((string)$ar['project']==='Global'); $myDept=(string)$ar['dept']; $myProj=(string)$ar['project']; } } }
     $existScores=json_decode((string)$er['scores'],true); if(!is_array($existScores))$existScores=[];
     // Audit s12 (#4 BYPASS fix — verification): MERGE the validated edit over the stored scores; NEVER full-replace.
     // (1) Omitting a key no longer drops it — it stays from $existScores (closes the "launder a rejection by leaving
@@ -1633,7 +1639,7 @@ case 'update_my_evaluation':
         if(($existScores[$k]['status']??'')==='rejected') continue;                                   // frozen — keep stored rejected value
         $sk=!empty($sv['skipped']); $sc=isset($sv['score'])?(int)$sv['score']:0;
         if(!$sk && ($sc<1||$sc>10)){ echo tamperJson('bad_score',['key'=>$k]); break 2; }   // s13 #7/#8: non-skipped must be real 1–10 (no covert score:0)
-        if($sk && (($gNoSkip && $myG && $toG) || ($gRatedAll && $myG && $toG))){ echo tamperJson('skip_not_allowed',['key'=>$k]); break 2; }
+        if($sk && ($gNoSkip||$gRatedAll) && $myG && $toG && $toDept===$myDept && $toProj===$myProj){ echo tamperJson('skip_not_allowed',['key'=>$k]); break 2; }
         $status=(!$sk && $sc>=$rules['moderationThreshold'])?'pending':'approved';
         // Same server-side comment-required guard as submit_evaluation — the edit window can't erase a mandatory justification.
         if(!$sk && $sc>0){

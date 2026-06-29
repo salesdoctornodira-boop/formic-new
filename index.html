@@ -864,10 +864,16 @@ function getMandatoryTargets(user,emps,cfg={}){
   // s17 §4: a manual head is EXEMPT — Global stays optional (Recommended) for them, never forced into mandatory.
   if((cfg.globalAlwaysRecommended==='1' || cfg.globalRatedByAll==='1') && !manualHead){
     let gl=ok.filter(e=>empProjects(e).includes('Global'));
-    if(isH){ if(!hre) gl=gl.filter(e=>e.is_head==1); }
-    else    {
+    if(isH){
+      // Req: a HEAD never gets Global force-added. A head's voting list is ONLY the depts they are head of (their
+      // scope computed above); Global is for ordinary employees only — never shown to heads (Step 1 nor Step 2).
+      gl=[];
+    } else {
       if(!ehr){ gl=gl.filter(e=>!(e.is_head==1)); }
-      else if((cfg.empRateHeadScope||'direct')==='direct'){ gl=gl.filter(e=>!(e.is_head==1)||headManages(e,user,ok)); }  // s16: Global heads mandatory only if they manage me
+      // Req (Feruz/HRD): a Global HEAD is mandatory for an employee ONLY if that head actually manages them (their
+      // head_role scope — e.g. 'HR Manager' ⇒ HR dept only). Applied in EVERY empRateHeadScope mode so a Global,
+      // dept-scoped head (HR) never leaks company-wide as a Linear Manager. (Was: gated only in 'direct' mode.)
+      else { gl=gl.filter(e=>!(e.is_head==1)||headManages(e,user,ok)); }
     }
     const seen=new Set(t.map(e=>e.id));
     gl.forEach(e=>{ if(!seen.has(e.id)){ t.push(e); seen.add(e.id); } });
@@ -1401,6 +1407,7 @@ function SurveyView({user,setView,setUser,onSubmit,evals,theme,t,allEmps,cfg,rul
     !blockSet.has(e.id) &&
     !(cfg.allowEmpRateHead!=='1' && e.is_head==1) &&
     !(isExecHead(e) && cfg.showExecInRecommended!=='1') &&   // Req1: Executive Managers hidden from Recommended unless the platform toggle is ON
+    !((user.is_head==1||user.isHead) && empProjects(e).includes('Global')) &&   // Req: heads never see Global — not in Step 1 nor in the Step-2 Recommended browse (Global is for ordinary employees only)
     !getMandatoryTargets(user,allEmps,cfg).some(m=>m.id===e.id) &&
     !doneIds.has(e.id) &&
     (e.name.toLowerCase().includes(sl) || e.dept.toLowerCase().includes(sl))
@@ -1414,13 +1421,12 @@ function SurveyView({user,setView,setUser,onSubmit,evals,theme,t,allEmps,cfg,rul
   const volDepts=[...new Set(volPeers.map(e=>e.dept))].sort();
   const volInDept=selectedDept?volPeers.filter(e=>e.dept===selectedDept):[];
   const info=targetId?allEmps.find(e=>e.id===targetId):null;
-  // Skip = only for targets outside own dept+project. HRD R2: (globalNoSkip) Global members can't skip a Global
-  // colleague even across depts. s17 §1: (globalRatedByAll) keeps Global colleagues mandatory ONLY for a Global rater —
-  // a NON-Global user who sees a Global person in their "Highly Recommended" block CAN skip ("Не могу оценить").
-  // Server backstops both (submit_evaluation/update_my_evaluation) with the same bothGlobal gate.
-  const targetGlobal=info&&empProjects(info).includes('Global');
-  const bothGlobal=targetGlobal&&empProjects(user).includes('Global');
-  const canSkip=info?(!(info.dept===user.dept&&info.project===user.project)&&!(cfg.globalNoSkip==='1'&&bothGlobal)&&!(cfg.globalRatedByAll==='1'&&bothGlobal)):false;
+  // Skip ("Не могу оценить" / "Bilmayman") is available for ANY target OUTSIDE the rater's own dept+project — i.e. for
+  // every "Highly Recommended" / "Recommended" card. Req: a Global person who appears in "Highly Recommended" is
+  // skippable EXACTLY like any other Highly-Recommended target (the old globalNoSkip/globalRatedByAll no-skip on
+  // Global↔Global is intentionally dropped here). Only own-team (Required) colleagues stay non-skippable. The server
+  // (submit_evaluation/update_my_evaluation) backstops with the same own-team gate.
+  const canSkip=info?!(info.dept===user.dept&&info.project===user.project):false;
 
   // selectTarget: load draft if exists, else empty. Replaces direct setTargetId calls.
   const selectTarget=useCallback((id)=>{
@@ -3944,9 +3950,9 @@ function EditVotesView({user,setView,theme,t,allEmps,rules=RULES_DEFAULT,cfg={}}
   const setText=(k,v)=>setEdit(p=>p[k].skipped?p:{...p,[k]:{...p[k],text:v}});
   const toggleSk=k=>setEdit(p=>({...p,[k]:{skipped:!p[k].skipped,score:0,text:''}}));
   const canSkipTarget=id=>{const tg=allEmps.find(e=>e.id===id);if(!tg)return false;
-    const targetGlobal=empProjects(tg).includes('Global');
-    const bothGlobal=targetGlobal&&empProjects(user).includes('Global');
-    return !(tg.dept===user.dept&&tg.project===user.project)&&!(cfg.globalNoSkip==='1'&&bothGlobal)&&!(cfg.globalRatedByAll==='1'&&targetGlobal);};
+    // Mirror SurveyView canSkip: a Global "Highly Recommended" target is skippable like any other; only an own-team
+    // (Required) colleague cannot be skipped.
+    return !(tg.dept===user.dept&&tg.project===user.project);};
   const saveRow=async()=>{
     setBusy(true);
     const ps={};VKEYS.forEach(k=>{const v=edit[k];ps[k]={score:v.score,text:v.text,skipped:v.skipped};});

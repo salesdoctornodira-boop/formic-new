@@ -865,8 +865,9 @@ function getMandatoryTargets(user,emps,cfg={}){
   if((cfg.globalAlwaysRecommended==='1' || cfg.globalRatedByAll==='1') && !manualHead){
     let gl=ok.filter(e=>empProjects(e).includes('Global'));
     if(isH){
-      // Req: a HEAD never gets Global force-added. A head's voting list is ONLY the depts they are head of (their
-      // scope computed above); Global is for ordinary employees only — never shown to heads (Step 1 nor Step 2).
+      // Req: a HEAD's REQUIRED list is ONLY the depts they are head of (their scope computed above) — "Global" is never
+      // force-added to a head's mandatory set. (Heads CAN still optionally rate Global people in the Step-2 Recommended
+      // browse; Global is mandatory only for ordinary employees.)
       gl=[];
     } else {
       if(!ehr){ gl=gl.filter(e=>!(e.is_head==1)); }
@@ -1407,7 +1408,6 @@ function SurveyView({user,setView,setUser,onSubmit,evals,theme,t,allEmps,cfg,rul
     !blockSet.has(e.id) &&
     !(cfg.allowEmpRateHead!=='1' && e.is_head==1) &&
     !(isExecHead(e) && cfg.showExecInRecommended!=='1') &&   // Req1: Executive Managers hidden from Recommended unless the platform toggle is ON
-    !((user.is_head==1||user.isHead) && empProjects(e).includes('Global')) &&   // Req: heads never see Global — not in Step 1 nor in the Step-2 Recommended browse (Global is for ordinary employees only)
     !getMandatoryTargets(user,allEmps,cfg).some(m=>m.id===e.id) &&
     !doneIds.has(e.id) &&
     (e.name.toLowerCase().includes(sl) || e.dept.toLowerCase().includes(sl))

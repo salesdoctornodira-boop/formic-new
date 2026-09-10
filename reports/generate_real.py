@@ -13,7 +13,7 @@ period = data['period']
 by_id = {p['id']: p for p in people}
 top15 = [by_id[i] for i in data['top15']]
 execs = [by_id[i] for i in data['execIds']]
-comment_audit = data['commentAudit']; comment_totals = data['commentTotals']
+comment_audit = data['commentAudit']; comment_shown = data['commentShown']
 distribution = data['distribution']; bayesP = data['bayes']
 ranking_all = [by_id[i] for i in data['rankingAll']]
 
@@ -23,7 +23,7 @@ VSHORT = {'commitment':'Прив.','communication':'Комм.','expertise':'Эк
 def esc(s): return html.escape(str(s if s is not None else ''))
 
 def clr(v):
-    v = v or 0
+    if not isinstance(v,(int,float)): return '#94a3b8'
     if v >= 8.5: return '#00C76E'
     if v >= 7:   return '#F59E0B'
     return '#EF4444'
@@ -80,11 +80,15 @@ def person_comments(p):
     for (author, text), e in sorted(heads.items(), key=lambda x: -(x[1]['score'] or 0)):
         head_list.append((author, e['role'], text, e['score']))
     peer_list = []
-    for text, e in sorted(peers.items(), key=lambda x: -x[1]['count']):
-        scs = [s for s in e['scores'] if isinstance(s, int)]
+    for text, e in peers.items():
+        scs = [s for s in e['scores'] if isinstance(s, (int, float))]
         avg = round(sum(scs)/len(scs), 1) if scs else '—'
         peer_list.append((text, e['count'], avg))
+    # most substantive first (longer, specific), then by frequency
+    peer_list.sort(key=lambda x: (-len(x[0]), -x[1]))
     return head_list, peer_list
+
+HEAD_CAP = 6; PEER_CAP = 5
 
 # ---------- HTML pieces ----------
 def kpi(label, value, sub, color='#00C76E'):
@@ -105,16 +109,18 @@ def person_card(p, rank=None):
     if heads:
         items = ''.join(
             f'<li><span class="cauthor">{esc(a)}<span class="crole">{esc(role)}</span></span>'
-            f'<span class="ctext">«{esc(txt)}»</span><span class="cscore" style="color:{clr(sc)}">{sc}</span></li>'
-            for a, role, txt, sc in heads)
-        hhtml = f'<div class="csect"><div class="chdr">Отзывы руководителей <span class="cnamed">— с указанием имени</span></div><ul class="clist">{items}</ul></div>'
+            f'<span class="ctext">«{esc(txt)}»</span><span class="cscore" style="color:{clr(sc)}">{sc if sc is not None else "—"}</span></li>'
+            for a, role, txt, sc in heads[:HEAD_CAP])
+        more = f'<li class="cmore">…и ещё {len(heads)-HEAD_CAP} от руководителей</li>' if len(heads)>HEAD_CAP else ''
+        hhtml = f'<div class="csect"><div class="chdr">Отзывы руководителей <span class="cnamed">— с указанием имени</span></div><ul class="clist">{items}{more}</ul></div>'
     phtml = ''
     if peers:
         items = ''.join(
             f'<li><span class="ctext">«{esc(txt)}»</span>'
-            f'<span class="cmeta">× {cnt} · ср. <b style="color:{clr(avg)}">{avg}</b></span></li>'
-            for txt, cnt, avg in peers)
-        phtml = f'<div class="csect"><div class="chdr">Отзывы коллег <span class="canon">— анонимно</span></div><ul class="clist peer">{items}</ul></div>'
+            f'<span class="cmeta">{("× "+str(cnt)+" · ") if cnt>1 else ""}<b style="color:{clr(avg)}">{avg}</b></span></li>'
+            for txt, cnt, avg in peers[:PEER_CAP])
+        more = f'<li class="cmore">…и ещё {len(peers)-PEER_CAP} отзывов коллег</li>' if len(peers)>PEER_CAP else ''
+        phtml = f'<div class="csect"><div class="chdr">Отзывы коллег <span class="canon">— анонимно</span> <span class="ccnt">({p["n_comments"]-p["n_head_comments"]})</span></div><ul class="clist peer">{items}{more}</ul></div>'
     if not heads and not peers:
         phtml = '<div class="csect nocom">Одобренных отзывов с текстом нет</div>'
     rankhtml = f'<span class="pcard-rank">#{rank}</span>' if rank else ''
@@ -126,11 +132,12 @@ def person_card(p, rank=None):
           <div class="pcard-meta">{esc(p['dept'])} · {esc(p['project'])}</div>
         </div>
         <div class="pcard-scores">
-          <div class="ps main"><div class="ps-v" style="color:{clr(p['dcs'])}">{p['dcs']}</div><div class="ps-l">Общий балл (DCS)</div></div>
+          <div class="ps main"><div class="ps-v" style="color:{clr(p['dcs'])}">{p['dcs']}</div><div class="ps-l">Общий балл</div></div>
           <div class="ps"><div class="ps-v">{p['avg']}</div><div class="ps-l">Средний</div></div>
-          <div class="ps"><div class="ps-v">{p['sum']}</div><div class="ps-l">Всего баллов</div></div>
+          <div class="ps"><div class="ps-v" style="color:{clr(p['finAvg'])}">{p['finAvg'] or '—'}</div><div class="ps-l">Final (рук.)</div></div>
+          <div class="ps"><div class="ps-v" style="color:{clr(p['peerAvg'])}">{p['peerAvg'] or '—'}</div><div class="ps-l">Peer (кол.)</div></div>
+          <div class="ps"><div class="ps-v">{p['sum']}</div><div class="ps-l">Всего</div></div>
           <div class="ps"><div class="ps-v">{p['evCnt']}</div><div class="ps-l">Оценок</div></div>
-          <div class="ps"><div class="ps-v">{p['coverage']}%</div><div class="ps-l">Охват</div></div>
         </div>
       </div>
       <div class="pcard-delta">{delta_badge(p['dcs'], company['dcs'])}</div>
@@ -152,14 +159,14 @@ dept_rows = ''.join(
       <td class="barcell">{bar(d['dcs'])}</td>
       <td class="num" style="color:{clr(d['mgr'])}">{d['mgr'] or '—'}</td>
       <td class="num" style="color:{clr(d['peer'])}">{d['peer'] or '—'}</td>
-      <td class="num">{d['votes']}</td><td class="num">{d['coverage']}%</td>
+      <td class="num">{d['votes']}</td><td class="num">{d['headcount']}</td>
     </tr>''' for i, d in enumerate(deptStats))
 
 proj_rows = ''.join(
     f'''<div class="projrow"><div class="projname">{esc(d['name'])}</div>
       <div class="projbarwrap">{bar(d['dcs'])}</div>
       <div class="projval" style="color:{clr(d['dcs'])}">{d['dcs'] or '—'}</div>
-      <div class="projmeta">{d['votes']} оц. · охват {d['coverage']}%</div></div>'''
+      <div class="projmeta">{d['votes']} оценок · {d['headcount']} чел.</div></div>'''
     for d in projStats)
 
 def top_row(i, p):
@@ -170,8 +177,9 @@ def top_row(i, p):
       <td class="barcell">{bar(p['bayes'])}</td>
       <td class="num">{p['dcs']}</td>
       <td class="num">{p['avg']}</td>
+      <td class="num" style="color:{clr(p['finAvg'])}">{p['finAvg'] or '—'}</td>
+      <td class="num" style="color:{clr(p['peerAvg'])}">{p['peerAvg'] or '—'}</td>
       <td class="num">{p['evCnt']}</td>
-      <td class="covcell">{cov_bar(p['coverage'])}<span class="covnum">{p['coverage']}%</span></td>
     </tr>'''
 top_rows = ''.join(top_row(i+1, p) for i, p in enumerate(top15))
 
@@ -182,25 +190,20 @@ def rank_row(i, p):
       f'<td class="name">{esc(p["name"])}<div class="tmeta">{esc(p["dept"])} · {esc(p["project"])}</div></td>'
       f'<td class="num" style="color:{clr(p["bayes"])};font-weight:800">{p["bayes"]}</td>'
       f'<td class="num">{p["dcs"]}</td><td class="num">{p["avg"]}</td>'
-      f'<td class="num">{p["evCnt"]}</td><td class="num">{p["coverage"]}%</td>'
-      f'<td class="num">{p["rankAvgCov"]}</td></tr>')
+      f'<td class="num">{p["finAvg"] or "—"}</td><td class="num">{p["peerAvg"] or "—"}</td>'
+      f'<td class="num">{p["evCnt"]}</td></tr>')
 rank_rows = ''.join(rank_row(i+1, p) for i, p in enumerate(ranking_all))
 
-# ---- comment audit table ----
-def audit_row(c):
-    typ = []
-    if c['head']: typ.append(f'рук.×{c["head"]}')
-    if c['peer']: typ.append(f'кол.×{c["peer"]}')
-    band = f"{c['lo']}–{c['hi']}" if c['lo'] is not None else '—'
-    keep_cls = 'keepyes' if c['kept'] else 'keepno'
-    return (f'<tr><td class="ctext2">«{esc(c["text"])}»</td>'
-      f'<td class="num">{c["total"]}</td>'
-      f'<td class="num keepyes">{c["kept"]}</td>'
-      f'<td class="num keepno">{c["pending"]}</td>'
-      f'<td class="num rej">{c["rejected"]}</td>'
-      f'<td class="num">{band}</td></tr>')
-audit_rows = ''.join(audit_row(c) for c in comment_audit)
-ct = comment_totals
+# ---- comment audit: drop-reasons table + flagged templates ----
+REASON_CLR={'шаблон / копипаст (повтор ≥5)':'#8B5CF6','«не знаю / не работал с ним»':'#EF4444',
+    'слишком коротко (<10)':'#94a3b8','одно общее слово («хорошо»/«yaxshi»)':'#F59E0B',
+    'пусто / невидимые символы':'#94a3b8','без слов (пунктуация/цифры)':'#94a3b8'}
+reason_rows = ''.join(
+    f'<tr><td><i class="sw" style="background:{REASON_CLR.get(r,"#94a3b8")}"></i> {esc(r)}</td>'
+    f'<td class="num rej">{n}</td></tr>' for r,n in comment_audit['reasons'])
+template_rows = ''.join(
+    f'<tr><td class="ctext2">«{esc(t)}»</td><td class="num rej">×{n}</td></tr>'
+    for t,n in comment_audit['templates'])
 
 exec_rows = ''.join(
     f'''<tr><td class="name">{esc(p['name'])}<div class="tmeta">{esc(p['head_role'])}</div></td>
@@ -210,8 +213,9 @@ exec_rows = ''.join(
     for p in execs)
 
 # per-person: ALL people, sorted by DCS desc (execs get their Executive badge)
+import os
 allp = sorted(people, key=lambda x: -x['dcs'])
-people_cards = ''.join(person_card(p) for p in allp)
+people_cards = '' if os.environ.get('APPENDIX_ONLY') else ''.join(person_card(p) for p in allp)
 
 # distribution panel (3 bands)
 _dt = max(1, distribution['high']+distribution['mid']+distribution['low'])
@@ -294,7 +298,7 @@ tr.muted td{ color:#b6c2c2; }
   padding:12px 15px; font-size:11px; color:#3f5556; margin-bottom:18px; }
 .note b{ color:var(--ink); }
 /* person cards */
-.pcard{ border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:12px; page-break-inside:avoid; }
+.pcard{ border:1px solid var(--line); border-radius:12px; padding:10px 13px; margin-bottom:8px; page-break-inside:avoid; }
 .pcard-head{ display:flex; align-items:flex-start; gap:12px; }
 .pcard-rank{ font-weight:900; color:#c3cecd; font-size:16px; font-family:monospace; }
 .pcard-id{ flex:0 0 auto; min-width:190px; }
@@ -313,10 +317,13 @@ tr.muted td{ color:#b6c2c2; }
 .vname{ font-size:11px; color:#40595a; font-weight:600; } .vval{ font-family:monospace; font-weight:800; text-align:right; font-size:12px; }
 .csect{ margin-bottom:9px; } .chdr{ font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:#40595a; margin-bottom:4px; }
 .cnamed{ color:#2563eb; } .canon{ color:var(--muted); font-weight:600; } .nocom{ font-size:11px; color:var(--muted); font-style:italic; }
-.clist{ list-style:none; } .clist li{ display:flex; gap:8px; align-items:baseline; padding:3px 0; border-bottom:1px dashed #eef2f3; }
+.clist{ list-style:none; } .clist li{ display:flex; gap:8px; align-items:baseline; padding:1.5px 0; border-bottom:1px dashed #eef2f3; }
+.pcard-body{ margin-top:2px; } .csect{ margin-bottom:6px; }
 .cauthor{ font-size:11px; font-weight:700; white-space:nowrap; } .crole{ display:block; font-size:9px; color:var(--muted); font-weight:500; }
 .ctext{ flex:1; font-size:11px; color:#2b3f40; } .cscore{ font-family:monospace; font-weight:800; font-size:12px; }
 .cmeta{ font-size:10px; color:var(--muted); white-space:nowrap; }
+.cmore{ font-size:10px; color:var(--muted); font-style:italic; border-bottom:none!important; }
+.ccnt{ color:var(--muted); font-weight:600; }
 .clist.peer li{ }
 /* footer legend */
 .legend{ font-size:10.5px; color:var(--muted); line-height:1.6; }
@@ -353,12 +360,12 @@ HTMLDOC = f'''<!doctype html><html lang="ru"><head><meta charset="utf-8">
   <div class="cover">
     <div class="eyebrow">CCS Platform · Corporate Culture Survey</div>
     <h1>Аналитика опроса</h1>
-    <div class="csub">Полный инфографический отчёт по результатам оценки · Опросник аналитикаси</div>
+    <div class="csub">Полный инфографический отчёт по реальным результатам оценки · Опросник аналитикаси</div>
     <div class="meta">
       <div>Период<br><b>{esc(period)}</b></div>
       <div>Сотрудников оценено<br><b>{company['people']}</b></div>
       <div>Всего оценок<br><b>{company['evals']}</b></div>
-      <div>Средний балл (DCS)<br><b>{company['dcs']}</b></div>
+      <div>Общий балл<br><b>{company['dcs']}</b></div>
       <div>Сформирован<br><b>{esc(GEN_DATE)}</b></div>
     </div>
   </div>
@@ -367,14 +374,14 @@ HTMLDOC = f'''<!doctype html><html lang="ru"><head><meta charset="utf-8">
     {kpi('Всего оценок', company['evals'], 'по компании за период', '#00C76E')}
     {kpi('Сотрудников оценено', company['people'], 'активных участников', '#3B82F6')}
     {kpi('Оценок руководителей', company['finalEvals'], 'Final — авторитетный голос', '#F59E0B')}
-    {kpi('Средний балл (DCS)', company['dcs'], 'взвешенный, цель > 8.5', clr(company['dcs']))}
+    {kpi('Общий балл', company['dcs'], 'Final 50% / Peer 50%, цель > 8.5', clr(company['dcs']))}
   </div>
 
   <h2><span class="dot">◈</span> Рейтинг компании</h2>
   <div class="hero">
     <div class="hero-main">
       <div class="hv" style="color:{clr(company['dcs'])}">{company['dcs']}</div>
-      <div class="hl">DCS · общий балл компании</div>
+      <div class="hl">Общий балл компании (Final 50% / Peer 50%)</div>
     </div>
     <div class="hero-sep"></div>
     <div class="hero-fp">
@@ -390,12 +397,12 @@ HTMLDOC = f'''<!doctype html><html lang="ru"><head><meta charset="utf-8">
 </div>
 
 <div class="page pb">
-  <h2><span class="dot">▦</span> Отделы — рейтинг DCS</h2>
+  <h2><span class="dot">▦</span> Отделы — общий балл</h2>
   <div class="card" style="padding:6px 14px">
   <table>
-    <thead><tr><th>#</th><th>Отдел</th><th style="text-align:right">DCS</th><th></th>
+    <thead><tr><th>#</th><th>Отдел</th><th style="text-align:right">Общий</th><th></th>
       <th style="text-align:right">Final</th><th style="text-align:right">Peer</th>
-      <th style="text-align:right">Оценок</th><th style="text-align:right">Охват</th></tr></thead>
+      <th style="text-align:right">Оценок</th><th style="text-align:right">Чел.</th></tr></thead>
     <tbody>{dept_rows}</tbody>
   </table>
   </div>
@@ -411,18 +418,19 @@ HTMLDOC = f'''<!doctype html><html lang="ru"><head><meta charset="utf-8">
   </div>
   <div class="note">
     <b>Как считается «Рейтинг».</b> Это <b>рейтинг доверия</b> (Байесовская взвешенная оценка):
-    <span class="mono">Рейтинг = (V/(V+M))·DCS + (M/(V+M))·C</span>, где V — число оценивших,
-    DCS — балл сотрудника, C = {bayesP['C']} (средний балл компании), M = {bayesP['M']} (вес доверия).
+    <span class="mono">Рейтинг = (V/(V+M))·Балл + (M/(V+M))·C</span>, где V — число оценивших,
+    Балл — общий балл сотрудника, C = {bayesP['C']} (средний балл компании), M = {bayesP['M']} (вес доверия).
     Высокий балл от <b>малого</b> числа людей подтягивается к среднему компании (доверия ещё мало),
     а хороший балл, подтверждённый <b>многими</b> оценивающими, — поднимается. Это и есть
-    «лучший балл от наибольшего числа людей». Полная таблица и сравнение методов — в конце отчёта (Приложение Б).
+    «лучший балл от наибольшего числа людей». Полная таблица — в конце отчёта (Приложение Б).
     Топ-руководители (Executive) вынесены в отдельный блок ниже.
   </div>
   <div class="card" style="padding:6px 14px">
   <table>
     <thead><tr><th>#</th><th>Сотрудник</th><th style="text-align:right">Рейтинг</th><th></th>
-      <th style="text-align:right">DCS</th><th style="text-align:right">Средний</th>
-      <th style="text-align:right">Оценок</th><th style="text-align:right">Охват</th></tr></thead>
+      <th style="text-align:right">Общий</th><th style="text-align:right">Средний</th>
+      <th style="text-align:right">Final</th><th style="text-align:right">Peer</th>
+      <th style="text-align:right">Оценок</th></tr></thead>
     <tbody>{top_rows}</tbody>
   </table>
   </div>
@@ -430,7 +438,7 @@ HTMLDOC = f'''<!doctype html><html lang="ru"><head><meta charset="utf-8">
   <h2 style="margin-top:24px"><span class="dot">♛</span> Руководство (Executive)</h2>
   <div class="card" style="padding:6px 14px">
   <table>
-    <thead><tr><th>Руководитель</th><th style="text-align:right">DCS</th><th></th>
+    <thead><tr><th>Руководитель</th><th style="text-align:right">Общий</th><th></th>
       <th style="text-align:right">Средний</th><th style="text-align:right">Оценок</th></tr></thead>
     <tbody>{exec_rows}</tbody>
   </table>
@@ -440,11 +448,12 @@ HTMLDOC = f'''<!doctype html><html lang="ru"><head><meta charset="utf-8">
 <div class="page pb">
   <div class="secthead">
     <h2 style="margin:0"><span class="dot">≣</span> Полный анализ по каждому сотруднику</h2>
-    <span class="sub">{len(allp)} сотрудников · сортировка по DCS</span>
+    <span class="sub">{len(allp)} сотрудников · сортировка по общему баллу</span>
   </div>
   <div class="note">
-    Отзывы показаны только <b>прошедшие модерацию (одобренные)</b> — реальные и честные.
-    Отзывы <b>руководителей — с указанием имени и фамилии</b>; отзывы коллег — <b>анонимно</b> (агрегированы: «текст» × число раз).
+    Показаны только <b>реальные кейсы</b> — содержательные отзывы; шаблоны/копипаст, «не знаю / не работал»,
+    односложные («хорошо») и пустые убраны (см. Приложение А). Отзывы <b>руководителей — с именем и фамилией</b>;
+    отзывы коллег — <b>анонимно</b> (агрегированы: «текст» × число раз).
   </div>
   {people_cards}
 </div>
@@ -452,28 +461,33 @@ HTMLDOC = f'''<!doctype html><html lang="ru"><head><meta charset="utf-8">
 <div class="page pb">
   <h2><span class="dot">✎</span> Приложение А — Аудит комментариев <span class="sub">(что оставлено, что нет)</span></h2>
   <div class="note">
-    В отчёт включены <b>только одобренные модератором</b> отзывы (реальные и честные). В опросе
-    <b>{ct['distinct']} уникальных текстов</b> ({ct['total']} упоминаний). <b>Оставлено: {ct['kept']}</b> (одобрено).
-    Исключено: <b>{ct['excluded_pending']}</b> на модерации (не проверены) + <b>{ct['excluded_rejected']}</b> отклонено модератором.
-    Все {ct['distinct']} текстов — настоящие содержательные отзывы; ни один не исключён как «фейк» —
-    отбор идёт только по статусу модерации каждого экземпляра.
+    Всего написанных комментариев: <b>{comment_audit['total']}</b> ({comment_audit['distinct']} уникальных текстов).
+    <b class="keepyes">Оставлено реальных кейсов: {comment_audit['kept']}</b>.
+    <b class="rej">Убрано: {comment_audit['dropped']}</b> — не являются реальными кейсами.
+    Ниже — по каким правилам убирали и сколько; таблица шаблонов (копипаст) приведена полностью.
   </div>
-  <div class="card" style="padding:6px 14px">
-  <table class="audit">
-    <thead><tr><th>Текст комментария</th><th style="text-align:right">Всего</th>
-      <th style="text-align:right">✓ В отчёте</th><th style="text-align:right">На модер.</th>
-      <th style="text-align:right">✗ Откл.</th><th style="text-align:right">Балл</th></tr></thead>
-    <tbody>{audit_rows}
-      <tr class="totalrow"><td>ИТОГО ({ct['distinct']})</td><td class="num">{ct['total']}</td>
-      <td class="num keepyes">{ct['kept']}</td><td class="num keepno">{ct['excluded_pending']}</td>
-      <td class="num rej">{ct['excluded_rejected']}</td><td></td></tr>
-    </tbody>
-  </table>
-  </div>
-  <div class="legend" style="margin-top:10px">
-    <b>Правило:</b> оставлены только экземпляры со статусом <b>«одобрено»</b> (прошли модерацию = честные).
-    «На модерации» (не проверены) и «отклонено» (модератор счёл невалидным) — исключены как текст;
-    при этом отклонённые всё же учтены в баллах как {data['rejectScore']}.
+  <div class="pcard-body" style="grid-template-columns:1fr 1fr; gap:18px; display:grid">
+    <div>
+      <div class="chdr" style="margin-bottom:6px">Причины исключения</div>
+      <div class="card" style="padding:4px 12px; margin:0">
+      <table class="audit"><thead><tr><th>Причина</th><th style="text-align:right">Убрано</th></tr></thead>
+        <tbody>{reason_rows}
+        <tr class="totalrow"><td>ИТОГО убрано</td><td class="num rej">{comment_audit['dropped']}</td></tr></tbody>
+      </table></div>
+      <div class="legend" style="margin-top:8px">
+        <b>«Реальный кейс»</b> — содержательный отзыв о конкретном человеке. Убираем: пустые/невидимые,
+        &lt;10 символов, односложные («хорошо», «yaxshi»), «не знаю / не работал с ним», и
+        <b>шаблоны</b> (один и тот же длинный текст, вставленный ≥5 раз разным людям — копипаст, а не кейс).
+        Баллы при этом <u>не меняются</u> — фильтр касается только текста отзывов.
+      </div>
+    </div>
+    <div>
+      <div class="chdr" style="margin-bottom:6px">Убранные шаблоны / копипаст (полный список)</div>
+      <div class="card" style="padding:4px 12px; margin:0">
+      <table class="audit"><thead><tr><th>Повторяющийся текст</th><th style="text-align:right">Раз</th></tr></thead>
+        <tbody>{template_rows}</tbody>
+      </table></div>
+    </div>
   </div>
 </div>
 
@@ -481,17 +495,18 @@ HTMLDOC = f'''<!doctype html><html lang="ru"><head><meta charset="utf-8">
   <h2><span class="dot">✦</span> Приложение Б — Как построен ТОП <span class="sub">(полная таблица)</span></h2>
   <div class="note">
     <b>Рейтинг</b> = Байесовская (взвешенная по доверию) оценка:
-    <span class="mono">(V/(V+{bayesP['M']})) · DCS + ({bayesP['M']}/(V+{bayesP['M']})) · {bayesP['C']}</span>,
-    V — число оценивших. Ниже — <b>все {len(ranking_all)} сотрудников</b> (кроме Executive), по этому рейтингу;
-    <b class="hotmark">ТОП-15 выделен</b>. Колонка «ср×охват» — прежний метод (для сравнения):
-    он завышал маленькие команды (100% охвата при 5 оценках), поэтому заменён на рейтинг доверия.
+    <span class="mono">(V/(V+{bayesP['M']})) · Балл + ({bayesP['M']}/(V+{bayesP['M']})) · {bayesP['C']}</span>,
+    V — число оценивших, Балл — общий балл сотрудника, C = {bayesP['C']} — средний по компании.
+    Ниже — <b>все {len(ranking_all)} сотрудников</b> (кроме Executive), по этому рейтингу;
+    <b class="hotmark">ТОП-15 выделен</b>. Так «лучший балл» поднимается только если подтверждён многими людьми,
+    а высокая оценка от 2–3 человек не попадает наверх случайно.
   </div>
   <div class="card" style="padding:6px 14px">
   <table class="audit">
     <thead><tr><th>#</th><th>Сотрудник</th><th style="text-align:right">Рейтинг</th>
-      <th style="text-align:right">DCS</th><th style="text-align:right">Средний</th>
-      <th style="text-align:right">Оценок</th><th style="text-align:right">Охват</th>
-      <th style="text-align:right">ср×охват</th></tr></thead>
+      <th style="text-align:right">Общий</th><th style="text-align:right">Средний</th>
+      <th style="text-align:right">Final</th><th style="text-align:right">Peer</th>
+      <th style="text-align:right">Оценок</th></tr></thead>
     <tbody>{rank_rows}</tbody>
   </table>
   </div>
@@ -500,19 +515,21 @@ HTMLDOC = f'''<!doctype html><html lang="ru"><head><meta charset="utf-8">
 <div class="page pb">
   <h2><span class="dot">ℹ</span> Методология и обозначения</h2>
   <div class="card legend">
-    <p><b>DCS (общий балл)</b> — взвешенная композитная оценка. Final (оценки руководителей) и Peer (оценки коллег)
-       складываются в пропорции <b>{data['weights']['finalShare']}% / {100-data['weights']['finalShare']}%</b>;
-       внутри Final оценки Executive и линейных руководителей — в пропорции {data['weights']['execShare']}% / {100-data['weights']['execShare']}%.</p>
-    <p><b>Средний балл</b> — простое среднее всех оценок сотрудника по 4 ценностям.
-       <b>Всего баллов</b> — сумма всех полученных оценок. <b>Охват</b> — доля оценивших из числа обязанных оценить.</p>
-    <p><b>Отклонённые</b> оценки (модерация) учитываются в баллах как {data['rejectScore']}; пропущенные («не знаю») — исключаются.</p>
+    <p><b>Источник:</b> реальная де-анонимизированная выгрузка опроса (период {esc(period)}): {company['evals']} оценок,
+       {company['people']} сотрудников. Баллы и текст отзывов взяты как есть, ничего не дописано.</p>
+    <p><b>Общий балл</b> — Final (оценки руководителей) и Peer (оценки коллег) в пропорции
+       <b>{data['weights']['finalShare']}% / {100-data['weights']['finalShare']}%</b> (сбалансированный балл).
+       <b>Средний балл</b> — простое среднее всех оценок по 4 ценностям. <b>Всего</b> — сумма всех полученных оценок.
+       <b>Оценок</b> — сколько человек оценило сотрудника.</p>
+    <p><b>Пропущенные</b> («не знаю») и <b>отклонённые</b> модератором оценки в баллы не входят.</p>
     <p><b>4 ценности:</b> Приверженность, Коммуникация, Экспертиза, Личность.</p>
     <p><b>ТОП-15 (рейтинг доверия):</b> Байесовская оценка
-       <span class="mono">(V/(V+{bayesP['M']}))·DCS + ({bayesP['M']}/(V+{bayesP['M']}))·{bayesP['C']}</span> —
+       <span class="mono">(V/(V+{bayesP['M']}))·Балл + ({bayesP['M']}/(V+{bayesP['M']}))·{bayesP['C']}</span> —
        поднимает хороший балл, подтверждённый многими оценивающими, и не даёт малой выборке (2–3 голоса)
-       случайно попасть наверх. Полная таблица — Приложение Б, аудит отзывов — Приложение А.</p>
-    <p><b>Комментарии:</b> в отчёт включены только одобренные модератором отзывы (реальные и честные);
-       отклонённые и непроверенные исключены. Руководители названы по имени; рядовые сотрудники анонимны.</p>
+       случайно попасть наверх. Полная таблица — Приложение Б.</p>
+    <p><b>Комментарии:</b> оставлены только <b>реальные кейсы</b> (содержательные отзывы). Убраны шаблоны/копипаст,
+       «не знаю / не работал», односложные и пустые (полный аудит — Приложение А). Руководители названы по имени;
+       рядовые сотрудники анонимны.</p>
     {scale_key()}
   </div>
   <div class="sub" style="margin-top:14px; text-align:center">

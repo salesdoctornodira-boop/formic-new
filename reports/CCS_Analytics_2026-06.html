@@ -103,6 +103,18 @@ tr.muted td{ color:#b6c2c2; }
 .scalekey span{ display:inline-flex; align-items:center; gap:5px; }
 .sw{ width:12px; height:12px; border-radius:3px; display:inline-block; }
 .secthead{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:12px; }
+.mono{ font-family:monospace; background:#eef4f4; padding:1px 5px; border-radius:4px; font-size:11px; }
+.audit td, .audit th{ padding:5px 8px; font-size:11px; }
+.audit .ctext2{ font-size:11px; color:#2b3f40; }
+tr.hot td{ background:#eafaf1; } tr.hot td.rank{ color:#0a9d5a; font-weight:900; }
+.hotmark{ background:#eafaf1; padding:0 4px; border-radius:3px; }
+.keepyes{ color:#0a9d5a; } td.keepyes{ font-weight:800; }
+.keepno{ color:#8595a3; } .rej{ color:#dc2626; }
+tr.totalrow td{ border-top:2px solid var(--line); font-weight:800; background:#fafbfb; }
+.distbar{ display:flex; height:22px; border-radius:8px; overflow:hidden; border:1px solid var(--line); }
+.distbar div{ height:100%; }
+.dchips{ display:flex; gap:18px; margin-top:10px; font-size:11.5px; }
+.dchip{ display:inline-flex; align-items:center; gap:6px; } .dchip b{ font-family:monospace; }
 @page{ size:A4; margin:12mm 10mm; }
 </style></head><body>
 
@@ -201,6 +213,9 @@ tr.muted td{ color:#b6c2c2; }
     </div></div>
   </div>
   <div class="scalekey"><span><i class="sw" style="background:#00C76E"></i> ≥ 8.5 — высокий</span><span><i class="sw" style="background:#F59E0B"></i> 7.0–8.4 — средний</span><span><i class="sw" style="background:#EF4444"></i> &lt; 7.0 — низкий</span></div>
+
+  <h2 style="margin-top:24px"><span class="dot">▤</span> Распределение сотрудников по баллам</h2>
+  <div class="card"><div class="distbar"><div style="width:28.9%;background:#F59E0B"></div><div style="width:71.1%;background:#EF4444"></div></div><div class="dchips"><span class="dchip"><i class="sw" style="background:#00C76E"></i>≥ 8.5 · высокий: <b>0</b></span><span class="dchip"><i class="sw" style="background:#F59E0B"></i>7.0–8.4 · средний: <b>24</b></span><span class="dchip"><i class="sw" style="background:#EF4444"></i>< 7.0 · низкий: <b>59</b></span></div></div>
 </div>
 
 <div class="page pb">
@@ -303,137 +318,157 @@ tr.muted td{ color:#b6c2c2; }
 <div class="page pb">
   <div class="secthead">
     <h2 style="margin:0"><span class="dot">★</span> ТОП-15 сотрудников</h2>
-    <span class="sub">лучший балл × охват (от наибольшего числа людей)</span>
+    <span class="sub">лучший балл, подтверждённый наибольшим числом людей</span>
   </div>
   <div class="note">
-    <b>Как считается рейтинг.</b> Ранг = <b>средний балл × охват</b> (доля оценивших из числа тех, кто обязан был оценить).
-    В рейтинг включены сотрудники с <b>≥ 5 оценками</b> — «лучший балл от наибольшего числа людей».
-    Топ-руководители (Executive) оцениваются только руководством и вынесены в отдельный блок ниже.
+    <b>Как считается «Рейтинг».</b> Это <b>рейтинг доверия</b> (Байесовская взвешенная оценка):
+    <span class="mono">Рейтинг = (V/(V+M))·DCS + (M/(V+M))·C</span>, где V — число оценивших,
+    DCS — балл сотрудника, C = 6.8 (средний балл компании), M = 10 (вес доверия).
+    Высокий балл от <b>малого</b> числа людей подтягивается к среднему компании (доверия ещё мало),
+    а хороший балл, подтверждённый <b>многими</b> оценивающими, — поднимается. Это и есть
+    «лучший балл от наибольшего числа людей». Полная таблица и сравнение методов — в конце отчёта (Приложение Б).
+    Топ-руководители (Executive) вынесены в отдельный блок ниже.
   </div>
   <div class="card" style="padding:6px 14px">
   <table>
-    <thead><tr><th>#</th><th>Сотрудник</th><th style="text-align:right">Средний</th><th></th>
-      <th style="text-align:right">DCS</th><th style="text-align:right">Оценок</th><th style="text-align:right">Охват</th></tr></thead>
+    <thead><tr><th>#</th><th>Сотрудник</th><th style="text-align:right">Рейтинг</th><th></th>
+      <th style="text-align:right">DCS</th><th style="text-align:right">Средний</th>
+      <th style="text-align:right">Оценок</th><th style="text-align:right">Охват</th></tr></thead>
     <tbody><tr>
       <td class="rank"><span class="medal m1">1</span></td>
       <td class="name">Madaminov Feruz<div class="tmeta">HR · Global</div></td>
-      <td class="num big" style="color:#F59E0B">7.2</td>
-      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:72.0%;background:#F59E0B"></div></div></td>
+      <td class="num big" style="color:#F59E0B">7.15</td>
+      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:71.5%;background:#F59E0B"></div></div></td>
       <td class="num">7.5</td>
+      <td class="num">7.2</td>
       <td class="num">10</td>
       <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:100%;background:#3B82F6"></div></div><span class="covnum">100%</span></td>
     </tr><tr>
       <td class="rank"><span class="medal m2">2</span></td>
-      <td class="name">Tulkin Bobomirzayev<div class="tmeta">Customer Care · iDokon</div></td>
-      <td class="num big" style="color:#F59E0B">7.2</td>
-      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:72.0%;background:#F59E0B"></div></div></td>
-      <td class="num">7.2</td>
-      <td class="num">5</td>
-      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:100%;background:#3B82F6"></div></div><span class="covnum">100%</span></td>
+      <td class="name">Mukumjanov Mansur<div class="tmeta">Development · iBox</div></td>
+      <td class="num big" style="color:#F59E0B">7.1</td>
+      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:71.0%;background:#F59E0B"></div></div></td>
+      <td class="num">7.3</td>
+      <td class="num">6.9</td>
+      <td class="num">15</td>
+      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:52%;background:#3B82F6"></div></div><span class="covnum">52%</span></td>
     </tr><tr>
       <td class="rank"><span class="medal m3">3</span></td>
-      <td class="name">Anvarbekov Asadbek<div class="tmeta">Development · iBox</div></td>
-      <td class="num big" style="color:#EF4444">6.6</td>
-      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:66.0%;background:#EF4444"></div></div></td>
-      <td class="num">6.7</td>
-      <td class="num">10</td>
-      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:100%;background:#3B82F6"></div></div><span class="covnum">100%</span></td>
+      <td class="name">Kamarov Jamoliddin<div class="tmeta">Sales · Sales Doctor</div></td>
+      <td class="num big" style="color:#F59E0B">7.09</td>
+      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:70.9%;background:#F59E0B"></div></div></td>
+      <td class="num">7.3</td>
+      <td class="num">6.8</td>
+      <td class="num">14</td>
+      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:26%;background:#3B82F6"></div></div><span class="covnum">26%</span></td>
     </tr><tr>
       <td class="rank"><span class="medal m4">4</span></td>
-      <td class="name">Boboqulov Jasur<div class="tmeta">Development · iDokon</div></td>
-      <td class="num big" style="color:#F59E0B">7.7</td>
-      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:77.0%;background:#F59E0B"></div></div></td>
-      <td class="num">7.6</td>
-      <td class="num">5</td>
-      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:62%;background:#3B82F6"></div></div><span class="covnum">62%</span></td>
+      <td class="name">Tursunaliyev Sardorbek<div class="tmeta">Development · Sales Doctor</div></td>
+      <td class="num big" style="color:#F59E0B">7.07</td>
+      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:70.7%;background:#F59E0B"></div></div></td>
+      <td class="num">7.2</td>
+      <td class="num">7.0</td>
+      <td class="num">20</td>
+      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:36%;background:#3B82F6"></div></div><span class="covnum">36%</span></td>
     </tr><tr>
       <td class="rank"><span class="medal m5">5</span></td>
-      <td class="name">Rustamova Samira<div class="tmeta">Sales · iDokon</div></td>
-      <td class="num big" style="color:#EF4444">6.9</td>
-      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:69.0%;background:#EF4444"></div></div></td>
-      <td class="num">6.8</td>
+      <td class="name">Boboqulov Jasur<div class="tmeta">Development · iDokon</div></td>
+      <td class="num big" style="color:#F59E0B">7.07</td>
+      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:70.7%;background:#F59E0B"></div></div></td>
+      <td class="num">7.6</td>
+      <td class="num">7.7</td>
       <td class="num">5</td>
       <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:62%;background:#3B82F6"></div></div><span class="covnum">62%</span></td>
     </tr><tr>
       <td class="rank"><span class="medal m6">6</span></td>
-      <td class="name">Yuldasheva Madina<div class="tmeta">Customer Care · Sales Doctor</div></td>
-      <td class="num big" style="color:#EF4444">6.8</td>
-      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:68.0%;background:#EF4444"></div></div></td>
-      <td class="num">6.7</td>
-      <td class="num">15</td>
-      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:58%;background:#3B82F6"></div></div><span class="covnum">58%</span></td>
+      <td class="name">Toksanbayeva Albina<div class="tmeta">Customer Care · Sales Doctor</div></td>
+      <td class="num big" style="color:#F59E0B">7.06</td>
+      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:70.6%;background:#F59E0B"></div></div></td>
+      <td class="num">7.2</td>
+      <td class="num">7.0</td>
+      <td class="num">19</td>
+      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:35%;background:#3B82F6"></div></div><span class="covnum">35%</span></td>
     </tr><tr>
       <td class="rank"><span class="medal m7">7</span></td>
-      <td class="name">Xujamatov Obid<div class="tmeta">Development · iBox</div></td>
-      <td class="num big" style="color:#F59E0B">7.0</td>
-      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:70.0%;background:#F59E0B"></div></div></td>
-      <td class="num">6.9</td>
-      <td class="num">16</td>
-      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:55%;background:#3B82F6"></div></div><span class="covnum">55%</span></td>
+      <td class="name">Izzattillayev Jamshid<div class="tmeta">Development · Sales Doctor</div></td>
+      <td class="num big" style="color:#EF4444">6.99</td>
+      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:69.9%;background:#EF4444"></div></div></td>
+      <td class="num">7.1</td>
+      <td class="num">7.0</td>
+      <td class="num">18</td>
+      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:33%;background:#3B82F6"></div></div><span class="covnum">33%</span></td>
     </tr><tr>
       <td class="rank"><span class="medal m8">8</span></td>
-      <td class="name">Abdullayev Alisher<div class="tmeta">Development · iDokon</div></td>
-      <td class="num big" style="color:#EF4444">6.2</td>
-      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:62.0%;background:#EF4444"></div></div></td>
-      <td class="num">6.1</td>
-      <td class="num">5</td>
-      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:62%;background:#3B82F6"></div></div><span class="covnum">62%</span></td>
+      <td class="name">Tulaganov Jamshid<div class="tmeta">Development · Sales Doctor</div></td>
+      <td class="num big" style="color:#EF4444">6.98</td>
+      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:69.8%;background:#EF4444"></div></div></td>
+      <td class="num">7.1</td>
+      <td class="num">6.9</td>
+      <td class="num">15</td>
+      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:27%;background:#3B82F6"></div></div><span class="covnum">27%</span></td>
     </tr><tr>
       <td class="rank"><span class="medal m9">9</span></td>
-      <td class="name">Bazaraliyev Sohib<div class="tmeta">Sales · iBox</div></td>
-      <td class="num big" style="color:#EF4444">6.4</td>
-      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:64.0%;background:#EF4444"></div></div></td>
-      <td class="num">6.5</td>
-      <td class="num">16</td>
-      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:57%;background:#3B82F6"></div></div><span class="covnum">57%</span></td>
-    </tr><tr>
-      <td class="rank"><span class="medal m10">10</span></td>
-      <td class="name">Mukumjanov Mansur<div class="tmeta">Development · iBox</div></td>
-      <td class="num big" style="color:#EF4444">6.9</td>
-      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:69.0%;background:#EF4444"></div></div></td>
-      <td class="num">7.3</td>
-      <td class="num">15</td>
-      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:52%;background:#3B82F6"></div></div><span class="covnum">52%</span></td>
-    </tr><tr>
-      <td class="rank"><span class="medal m11">11</span></td>
-      <td class="name">Orifjonov Rahmatullo<div class="tmeta">Sales · iBox</div></td>
-      <td class="num big" style="color:#F59E0B">7.1</td>
-      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:71.0%;background:#F59E0B"></div></div></td>
+      <td class="name">Muminov Davron<div class="tmeta">Development · Sales Doctor</div></td>
+      <td class="num big" style="color:#EF4444">6.97</td>
+      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:69.7%;background:#EF4444"></div></div></td>
+      <td class="num">7.1</td>
       <td class="num">7.0</td>
       <td class="num">14</td>
-      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:50%;background:#3B82F6"></div></div><span class="covnum">50%</span></td>
+      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:25%;background:#3B82F6"></div></div><span class="covnum">25%</span></td>
+    </tr><tr>
+      <td class="rank"><span class="medal m10">10</span></td>
+      <td class="name">Ashuraliyev Xoshimxon<div class="tmeta">Development · iBox</div></td>
+      <td class="num big" style="color:#EF4444">6.97</td>
+      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:69.7%;background:#EF4444"></div></div></td>
+      <td class="num">7.1</td>
+      <td class="num">7.1</td>
+      <td class="num">13</td>
+      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:45%;background:#3B82F6"></div></div><span class="covnum">45%</span></td>
+    </tr><tr>
+      <td class="rank"><span class="medal m11">11</span></td>
+      <td class="name">Abduraxmonov Abdulaziz<div class="tmeta">Sales · iBox</div></td>
+      <td class="num big" style="color:#EF4444">6.96</td>
+      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:69.6%;background:#EF4444"></div></div></td>
+      <td class="num">7.1</td>
+      <td class="num">7.1</td>
+      <td class="num">11</td>
+      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:39%;background:#3B82F6"></div></div><span class="covnum">39%</span></td>
     </tr><tr>
       <td class="rank"><span class="medal m12">12</span></td>
-      <td class="name">Egamberdiyev Sanjar<div class="tmeta">Customer Care · iBox</div></td>
-      <td class="num big" style="color:#EF4444">6.8</td>
-      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:68.0%;background:#EF4444"></div></div></td>
-      <td class="num">6.9</td>
-      <td class="num">15</td>
-      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:52%;background:#3B82F6"></div></div><span class="covnum">52%</span></td>
+      <td class="name">Xayrullina Valeriya<div class="tmeta">Accounting and Finance · Global</div></td>
+      <td class="num big" style="color:#EF4444">6.95</td>
+      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:69.5%;background:#EF4444"></div></div></td>
+      <td class="num">7.0</td>
+      <td class="num">7.0</td>
+      <td class="num">32</td>
+      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:32%;background:#3B82F6"></div></div><span class="covnum">32%</span></td>
     </tr><tr>
       <td class="rank"><span class="medal m13">13</span></td>
-      <td class="name">Jurayev Sanjar<div class="tmeta">Customer Care · iBox</div></td>
-      <td class="num big" style="color:#EF4444">6.8</td>
-      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:68.0%;background:#EF4444"></div></div></td>
-      <td class="num">6.9</td>
-      <td class="num">15</td>
-      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:52%;background:#3B82F6"></div></div><span class="covnum">52%</span></td>
+      <td class="name">Burxonov Ulugbek<div class="tmeta">Customer Care · Sales Doctor</div></td>
+      <td class="num big" style="color:#EF4444">6.94</td>
+      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:69.4%;background:#EF4444"></div></div></td>
+      <td class="num">7.0</td>
+      <td class="num">7.1</td>
+      <td class="num">21</td>
+      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:38%;background:#3B82F6"></div></div><span class="covnum">38%</span></td>
     </tr><tr>
       <td class="rank"><span class="medal m14">14</span></td>
-      <td class="name">Vaxobov Saloxiddin<div class="tmeta">Customer Care · iBox</div></td>
-      <td class="num big" style="color:#EF4444">6.9</td>
-      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:69.0%;background:#EF4444"></div></div></td>
+      <td class="name">Sabirdjanov Suroj<div class="tmeta">Customer Care · Sales Doctor</div></td>
+      <td class="num big" style="color:#EF4444">6.93</td>
+      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:69.3%;background:#EF4444"></div></div></td>
+      <td class="num">7.0</td>
       <td class="num">6.7</td>
-      <td class="num">14</td>
-      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:48%;background:#3B82F6"></div></div><span class="covnum">48%</span></td>
+      <td class="num">19</td>
+      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:35%;background:#3B82F6"></div></div><span class="covnum">35%</span></td>
     </tr><tr>
       <td class="rank"><span class="medal m15">15</span></td>
-      <td class="name">Xursanaliyev Abdullajon<div class="tmeta">Development · iBox</div></td>
-      <td class="num big" style="color:#EF4444">6.7</td>
-      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:67.0%;background:#EF4444"></div></div></td>
-      <td class="num">6.3</td>
-      <td class="num">14</td>
-      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:48%;background:#3B82F6"></div></div><span class="covnum">48%</span></td>
+      <td class="name">Tojiyev Ikrom<div class="tmeta">Sales · Sales Doctor</div></td>
+      <td class="num big" style="color:#EF4444">6.93</td>
+      <td class="barcell"><div class="bar"><div class="bar-fill" style="width:69.3%;background:#EF4444"></div></div></td>
+      <td class="num">7.0</td>
+      <td class="num">6.7</td>
+      <td class="num">17</td>
+      <td class="covcell"><div class="bar cov"><div class="bar-fill" style="width:31%;background:#3B82F6"></div></div><span class="covnum">31%</span></td>
     </tr></tbody>
   </table>
   </div>
@@ -463,7 +498,7 @@ tr.muted td{ color:#b6c2c2; }
 <div class="page pb">
   <div class="secthead">
     <h2 style="margin:0"><span class="dot">≣</span> Полный анализ по каждому сотруднику</h2>
-    <span class="sub">79 сотрудников · сортировка по DCS</span>
+    <span class="sub">83 сотрудников · сортировка по DCS</span>
   </div>
   <div class="note">
     Отзывы показаны только <b>прошедшие модерацию (одобренные)</b> — реальные и честные.
@@ -608,6 +643,26 @@ tr.muted td{ color:#b6c2c2; }
       <div class="pcard-body">
         <div class="pcard-vals"><div class="vrow"><span class="vname">Приверженность</span><div class="bar"><div class="bar-fill" style="width:70.0%;background:#F59E0B"></div></div><span class="vval" style="color:#F59E0B">7.0</span></div><div class="vrow"><span class="vname">Коммуникация</span><div class="bar"><div class="bar-fill" style="width:80.0%;background:#F59E0B"></div></div><span class="vval" style="color:#F59E0B">8.0</span></div><div class="vrow"><span class="vname">Экспертиза</span><div class="bar"><div class="bar-fill" style="width:66.0%;background:#EF4444"></div></div><span class="vval" style="color:#EF4444">6.6</span></div><div class="vrow"><span class="vname">Личность</span><div class="bar"><div class="bar-fill" style="width:72.0%;background:#F59E0B"></div></div><span class="vval" style="color:#F59E0B">7.2</span></div></div>
         <div class="pcard-coms"><div class="csect"><div class="chdr">Отзывы руководителей <span class="cnamed">— с указанием имени</span></div><ul class="clist"><li><span class="cauthor">Abidov Davron<span class="crole">CEO</span></span><span class="ctext">«Образцовая координация с другими отделами»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Afzal Abrorov<span class="crole">Head of iDokon</span></span><span class="ctext">«Образцовая координация с другими отделами»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Abidov Davron<span class="crole">CEO</span></span><span class="ctext">«Ровно отработал период»</span><span class="cscore" style="color:#F59E0B">7</span></li></ul></div><div class="csect"><div class="chdr">Отзывы коллег <span class="canon">— анонимно</span></div><ul class="clist peer"><li><span class="ctext">«Чётко выстроил процесс, всё прозрачно»</span><span class="cmeta">× 1 · ср. <b style="color:#F59E0B">8.0</b></span></li><li><span class="ctext">«Закрыл сделку раньше срока, подставил плечо команде»</span><span class="cmeta">× 1 · ср. <b style="color:#F59E0B">8.0</b></span></li><li><span class="ctext">«Образцовая координация с другими отделами»</span><span class="cmeta">× 1 · ср. <b style="color:#F59E0B">8.0</b></span></li><li><span class="ctext">«Помог новичку без напоминаний»</span><span class="cmeta">× 1 · ср. <b style="color:#F59E0B">8.0</b></span></li><li><span class="ctext">«Стабильно выполняет задачи»</span><span class="cmeta">× 1 · ср. <b style="color:#EF4444">5.0</b></span></li></ul></div></div>
+      </div>
+    </div><div class="pcard">
+      <div class="pcard-head">
+        
+        <div class="pcard-id">
+          <div class="pcard-name">Xo&#x27;janazarov Xasan <span class="badge exec">Executive · CTO</span></div>
+          <div class="pcard-meta">Руководство · Global</div>
+        </div>
+        <div class="pcard-scores">
+          <div class="ps main"><div class="ps-v" style="color:#F59E0B">7.1</div><div class="ps-l">Общий балл (DCS)</div></div>
+          <div class="ps"><div class="ps-v">7.1</div><div class="ps-l">Средний</div></div>
+          <div class="ps"><div class="ps-v">339</div><div class="ps-l">Всего баллов</div></div>
+          <div class="ps"><div class="ps-v">12</div><div class="ps-l">Оценок</div></div>
+          <div class="ps"><div class="ps-v">0%</div><div class="ps-l">Охват</div></div>
+        </div>
+      </div>
+      <div class="pcard-delta"><span class="delta up">▲ +0.3 к компании</span></div>
+      <div class="pcard-body">
+        <div class="pcard-vals"><div class="vrow"><span class="vname">Приверженность</span><div class="bar"><div class="bar-fill" style="width:74.0%;background:#F59E0B"></div></div><span class="vval" style="color:#F59E0B">7.4</span></div><div class="vrow"><span class="vname">Коммуникация</span><div class="bar"><div class="bar-fill" style="width:75.0%;background:#F59E0B"></div></div><span class="vval" style="color:#F59E0B">7.5</span></div><div class="vrow"><span class="vname">Экспертиза</span><div class="bar"><div class="bar-fill" style="width:67.0%;background:#EF4444"></div></div><span class="vval" style="color:#EF4444">6.7</span></div><div class="vrow"><span class="vname">Личность</span><div class="bar"><div class="bar-fill" style="width:67.0%;background:#EF4444"></div></div><span class="vval" style="color:#EF4444">6.7</span></div></div>
+        <div class="pcard-coms"><div class="csect"><div class="chdr">Отзывы руководителей <span class="cnamed">— с указанием имени</span></div><ul class="clist"><li><span class="cauthor">Samadov Diyorbek<span class="crole">Head of Marketing</span></span><span class="ctext">«Взял на себя сложный кейс и довёл до конца»</span><span class="cscore" style="color:#00C76E">10</span></li><li><span class="cauthor">Yuldasheva Madina<span class="crole">Head of Customer Care</span></span><span class="ctext">«Чётко выстроил процесс, всё прозрачно»</span><span class="cscore" style="color:#00C76E">10</span></li><li><span class="cauthor">Abidov Davron<span class="crole">CEO</span></span><span class="ctext">«Чётко выстроил процесс, всё прозрачно»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Madaminov Feruz<span class="crole">HR Manager</span></span><span class="ctext">«Закрыл сделку раньше срока, подставил плечо команде»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Anvarbekov Asadbek<span class="crole">Product Manager (iBox)</span></span><span class="ctext">«Взял на себя сложный кейс и довёл до конца»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Asanov Abdurashid<span class="crole">Senior KA Manager</span></span><span class="ctext">«Чётко выстроил процесс, всё прозрачно»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Golshan Neda<span class="crole">CPO</span></span><span class="ctext">«Сильная экспертиза, провёл внутреннее обучение»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Golshan Neda<span class="crole">CPO</span></span><span class="ctext">«Закрыл сделку раньше срока, подставил плечо команде»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Abidov Davron<span class="crole">CEO</span></span><span class="ctext">«В целом нормально, есть к чему стремиться»</span><span class="cscore" style="color:#F59E0B">7</span></li><li><span class="cauthor">Afzal Abrorov<span class="crole">Head of iDokon</span></span><span class="ctext">«Ровно отработал период»</span><span class="cscore" style="color:#F59E0B">7</span></li><li><span class="cauthor">Afzal Abrorov<span class="crole">Head of iDokon</span></span><span class="ctext">«Стабильно выполняет задачи»</span><span class="cscore" style="color:#F59E0B">7</span></li><li><span class="cauthor">Madaminov Feruz<span class="crole">HR Manager</span></span><span class="ctext">«Ровно отработал период»</span><span class="cscore" style="color:#EF4444">6</span></li><li><span class="cauthor">Madaminov Feruz<span class="crole">HR Manager</span></span><span class="ctext">«Срывает договорённости без предупреждения»</span><span class="cscore" style="color:#EF4444">4</span></li><li><span class="cauthor">Samadov Diyorbek<span class="crole">Head of Marketing</span></span><span class="ctext">«Перекладывает ответственность на коллег»</span><span class="cscore" style="color:#EF4444">4</span></li><li><span class="cauthor">Asanov Abdurashid<span class="crole">Senior KA Manager</span></span><span class="ctext">«Не отвечает на сообщения по несколько дней»</span><span class="cscore" style="color:#EF4444">4</span></li></ul></div><div class="csect"><div class="chdr">Отзывы коллег <span class="canon">— анонимно</span></div><ul class="clist peer"><li><span class="ctext">«Закрыл сделку раньше срока, подставил плечо команде»</span><span class="cmeta">× 2 · ср. <b style="color:#00C76E">8.5</b></span></li><li><span class="ctext">«Помог новичку без напоминаний»</span><span class="cmeta">× 1 · ср. <b style="color:#00C76E">9.0</b></span></li><li><span class="ctext">«Образцовая координация с другими отделами»</span><span class="cmeta">× 1 · ср. <b style="color:#00C76E">9.0</b></span></li><li><span class="ctext">«Не отвечает на сообщения по несколько дней»</span><span class="cmeta">× 1 · ср. <b style="color:#EF4444">4.0</b></span></li><li><span class="ctext">«Игнорирует обратную связь от команды»</span><span class="cmeta">× 1 · ср. <b style="color:#EF4444">4.0</b></span></li></ul></div></div>
       </div>
     </div><div class="pcard">
       <div class="pcard-head">
@@ -1473,6 +1528,46 @@ tr.muted td{ color:#b6c2c2; }
       <div class="pcard-head">
         
         <div class="pcard-id">
+          <div class="pcard-name">Golshan Neda <span class="badge exec">Executive · CPO</span></div>
+          <div class="pcard-meta">Руководство · Global</div>
+        </div>
+        <div class="pcard-scores">
+          <div class="ps main"><div class="ps-v" style="color:#EF4444">6.8</div><div class="ps-l">Общий балл (DCS)</div></div>
+          <div class="ps"><div class="ps-v">6.8</div><div class="ps-l">Средний</div></div>
+          <div class="ps"><div class="ps-v">758</div><div class="ps-l">Всего баллов</div></div>
+          <div class="ps"><div class="ps-v">28</div><div class="ps-l">Оценок</div></div>
+          <div class="ps"><div class="ps-v">0%</div><div class="ps-l">Охват</div></div>
+        </div>
+      </div>
+      <div class="pcard-delta"><span class="delta eq">= на уровне компании</span></div>
+      <div class="pcard-body">
+        <div class="pcard-vals"><div class="vrow"><span class="vname">Приверженность</span><div class="bar"><div class="bar-fill" style="width:71.0%;background:#F59E0B"></div></div><span class="vval" style="color:#F59E0B">7.1</span></div><div class="vrow"><span class="vname">Коммуникация</span><div class="bar"><div class="bar-fill" style="width:62.0%;background:#EF4444"></div></div><span class="vval" style="color:#EF4444">6.2</span></div><div class="vrow"><span class="vname">Экспертиза</span><div class="bar"><div class="bar-fill" style="width:69.0%;background:#EF4444"></div></div><span class="vval" style="color:#EF4444">6.9</span></div><div class="vrow"><span class="vname">Личность</span><div class="bar"><div class="bar-fill" style="width:69.0%;background:#EF4444"></div></div><span class="vval" style="color:#EF4444">6.9</span></div></div>
+        <div class="pcard-coms"><div class="csect"><div class="chdr">Отзывы руководителей <span class="cnamed">— с указанием имени</span></div><ul class="clist"><li><span class="cauthor">Asanov Abdurashid<span class="crole">Senior KA Manager</span></span><span class="ctext">«Закрыл сделку раньше срока, подставил плечо команде»</span><span class="cscore" style="color:#00C76E">9</span></li><li><span class="cauthor">Madaminov Feruz<span class="crole">HR Manager</span></span><span class="ctext">«Закрыл сделку раньше срока, подставил плечо команде»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Samadov Diyorbek<span class="crole">Head of Marketing</span></span><span class="ctext">«Помог новичку без напоминаний»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Sulaymonov Otabek<span class="crole">CCO</span></span><span class="ctext">«Чётко выстроил процесс, всё прозрачно»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Yuldasheva Madina<span class="crole">Head of Customer Care</span></span><span class="ctext">«Чётко выстроил процесс, всё прозрачно»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Afzal Abrorov<span class="crole">Head of iDokon</span></span><span class="ctext">«Закрыл сделку раньше срока, подставил плечо команде»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Asanov Abdurashid<span class="crole">Senior KA Manager</span></span><span class="ctext">«Помог новичку без напоминаний»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Abidov Davron<span class="crole">CEO</span></span><span class="ctext">«В целом нормально, есть к чему стремиться»</span><span class="cscore" style="color:#F59E0B">7</span></li><li><span class="cauthor">Anvarbekov Asadbek<span class="crole">Product Manager (iBox)</span></span><span class="ctext">«В целом нормально, есть к чему стремиться»</span><span class="cscore" style="color:#EF4444">6</span></li><li><span class="cauthor">Asanov Abdurashid<span class="crole">Senior KA Manager</span></span><span class="ctext">«В целом нормально, есть к чему стремиться»</span><span class="cscore" style="color:#EF4444">6</span></li><li><span class="cauthor">Yuldasheva Madina<span class="crole">Head of Customer Care</span></span><span class="ctext">«Не отвечает на сообщения по несколько дней»</span><span class="cscore" style="color:#EF4444">4</span></li><li><span class="cauthor">Afzal Abrorov<span class="crole">Head of iDokon</span></span><span class="ctext">«Срывает договорённости без предупреждения»</span><span class="cscore" style="color:#EF4444">4</span></li></ul></div><div class="csect"><div class="chdr">Отзывы коллег <span class="canon">— анонимно</span></div><ul class="clist peer"><li><span class="ctext">«В целом нормально, есть к чему стремиться»</span><span class="cmeta">× 4 · ср. <b style="color:#EF4444">6.0</b></span></li><li><span class="ctext">«Образцовая координация с другими отделами»</span><span class="cmeta">× 3 · ср. <b style="color:#F59E0B">8.0</b></span></li><li><span class="ctext">«Чётко выстроил процесс, всё прозрачно»</span><span class="cmeta">× 3 · ср. <b style="color:#F59E0B">8.0</b></span></li><li><span class="ctext">«Помог новичку без напоминаний»</span><span class="cmeta">× 3 · ср. <b style="color:#F59E0B">8.0</b></span></li><li><span class="ctext">«Сильная экспертиза, провёл внутреннее обучение»</span><span class="cmeta">× 3 · ср. <b style="color:#F59E0B">8.0</b></span></li><li><span class="ctext">«Стабильно выполняет задачи»</span><span class="cmeta">× 3 · ср. <b style="color:#EF4444">6.3</b></span></li><li><span class="ctext">«Закрыл сделку раньше срока, подставил плечо команде»</span><span class="cmeta">× 2 · ср. <b style="color:#F59E0B">8.0</b></span></li><li><span class="ctext">«Игнорирует обратную связь от команды»</span><span class="cmeta">× 2 · ср. <b style="color:#EF4444">3.5</b></span></li><li><span class="ctext">«Не отвечает на сообщения по несколько дней»</span><span class="cmeta">× 2 · ср. <b style="color:#EF4444">4.0</b></span></li><li><span class="ctext">«Взял на себя сложный кейс и довёл до конца»</span><span class="cmeta">× 1 · ср. <b style="color:#F59E0B">8.0</b></span></li><li><span class="ctext">«Ровно отработал период»</span><span class="cmeta">× 1 · ср. <b style="color:#EF4444">6.0</b></span></li><li><span class="ctext">«Перекладывает ответственность на коллег»</span><span class="cmeta">× 1 · ср. <b style="color:#EF4444">4.0</b></span></li><li><span class="ctext">«Срывает договорённости без предупреждения»</span><span class="cmeta">× 1 · ср. <b style="color:#EF4444">4.0</b></span></li></ul></div></div>
+      </div>
+    </div><div class="pcard">
+      <div class="pcard-head">
+        
+        <div class="pcard-id">
+          <div class="pcard-name">Abidov Davron <span class="badge exec">Executive · CEO</span></div>
+          <div class="pcard-meta">Руководство · Global</div>
+        </div>
+        <div class="pcard-scores">
+          <div class="ps main"><div class="ps-v" style="color:#EF4444">6.7</div><div class="ps-l">Общий балл (DCS)</div></div>
+          <div class="ps"><div class="ps-v">6.7</div><div class="ps-l">Средний</div></div>
+          <div class="ps"><div class="ps-v">965</div><div class="ps-l">Всего баллов</div></div>
+          <div class="ps"><div class="ps-v">36</div><div class="ps-l">Оценок</div></div>
+          <div class="ps"><div class="ps-v">0%</div><div class="ps-l">Охват</div></div>
+        </div>
+      </div>
+      <div class="pcard-delta"><span class="delta down">▼ -0.1 к компании</span></div>
+      <div class="pcard-body">
+        <div class="pcard-vals"><div class="vrow"><span class="vname">Приверженность</span><div class="bar"><div class="bar-fill" style="width:67.0%;background:#EF4444"></div></div><span class="vval" style="color:#EF4444">6.7</span></div><div class="vrow"><span class="vname">Коммуникация</span><div class="bar"><div class="bar-fill" style="width:69.0%;background:#EF4444"></div></div><span class="vval" style="color:#EF4444">6.9</span></div><div class="vrow"><span class="vname">Экспертиза</span><div class="bar"><div class="bar-fill" style="width:65.0%;background:#EF4444"></div></div><span class="vval" style="color:#EF4444">6.5</span></div><div class="vrow"><span class="vname">Личность</span><div class="bar"><div class="bar-fill" style="width:67.0%;background:#EF4444"></div></div><span class="vval" style="color:#EF4444">6.7</span></div></div>
+        <div class="pcard-coms"><div class="csect"><div class="chdr">Отзывы руководителей <span class="cnamed">— с указанием имени</span></div><ul class="clist"><li><span class="cauthor">Afzal Abrorov<span class="crole">Head of iDokon</span></span><span class="ctext">«Взял на себя сложный кейс и довёл до конца»</span><span class="cscore" style="color:#00C76E">10</span></li><li><span class="cauthor">Samadov Diyorbek<span class="crole">Head of Marketing</span></span><span class="ctext">«Взял на себя сложный кейс и довёл до конца»</span><span class="cscore" style="color:#00C76E">9</span></li><li><span class="cauthor">Madaminov Feruz<span class="crole">HR Manager</span></span><span class="ctext">«Чётко выстроил процесс, всё прозрачно»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Madaminov Feruz<span class="crole">HR Manager</span></span><span class="ctext">«Помог новичку без напоминаний»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Samadov Diyorbek<span class="crole">Head of Marketing</span></span><span class="ctext">«Сильная экспертиза, провёл внутреннее обучение»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Sulaymonov Otabek<span class="crole">CCO</span></span><span class="ctext">«Помог новичку без напоминаний»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Sulaymonov Otabek<span class="crole">CCO</span></span><span class="ctext">«Закрыл сделку раньше срока, подставил плечо команде»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Yuldasheva Madina<span class="crole">Head of Customer Care</span></span><span class="ctext">«Чётко выстроил процесс, всё прозрачно»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Anvarbekov Asadbek<span class="crole">Product Manager (iBox)</span></span><span class="ctext">«Закрыл сделку раньше срока, подставил плечо команде»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Asanov Abdurashid<span class="crole">Senior KA Manager</span></span><span class="ctext">«Помог новичку без напоминаний»</span><span class="cscore" style="color:#F59E0B">8</span></li><li><span class="cauthor">Anvarbekov Asadbek<span class="crole">Product Manager (iBox)</span></span><span class="ctext">«Ровно отработал период»</span><span class="cscore" style="color:#F59E0B">7</span></li><li><span class="cauthor">Golshan Neda<span class="crole">CPO</span></span><span class="ctext">«Ровно отработал период»</span><span class="cscore" style="color:#F59E0B">7</span></li><li><span class="cauthor">Xo&#x27;janazarov Xasan<span class="crole">CTO</span></span><span class="ctext">«Стабильно выполняет задачи»</span><span class="cscore" style="color:#EF4444">6</span></li><li><span class="cauthor">Afzal Abrorov<span class="crole">Head of iDokon</span></span><span class="ctext">«Ровно отработал период»</span><span class="cscore" style="color:#EF4444">6</span></li><li><span class="cauthor">Golshan Neda<span class="crole">CPO</span></span><span class="ctext">«В целом нормально, есть к чему стремиться»</span><span class="cscore" style="color:#EF4444">6</span></li><li><span class="cauthor">Xo&#x27;janazarov Xasan<span class="crole">CTO</span></span><span class="ctext">«Срывает договорённости без предупреждения»</span><span class="cscore" style="color:#EF4444">4</span></li><li><span class="cauthor">Anvarbekov Asadbek<span class="crole">Product Manager (iBox)</span></span><span class="ctext">«Не отвечает на сообщения по несколько дней»</span><span class="cscore" style="color:#EF4444">4</span></li><li><span class="cauthor">Asanov Abdurashid<span class="crole">Senior KA Manager</span></span><span class="ctext">«Перекладывает ответственность на коллег»</span><span class="cscore" style="color:#EF4444">4</span></li><li><span class="cauthor">Asanov Abdurashid<span class="crole">Senior KA Manager</span></span><span class="ctext">«Не отвечает на сообщения по несколько дней»</span><span class="cscore" style="color:#EF4444">3</span></li></ul></div><div class="csect"><div class="chdr">Отзывы коллег <span class="canon">— анонимно</span></div><ul class="clist peer"><li><span class="ctext">«Взял на себя сложный кейс и довёл до конца»</span><span class="cmeta">× 10 · ср. <b style="color:#F59E0B">8.2</b></span></li><li><span class="ctext">«Помог новичку без напоминаний»</span><span class="cmeta">× 6 · ср. <b style="color:#F59E0B">8.3</b></span></li><li><span class="ctext">«Образцовая координация с другими отделами»</span><span class="cmeta">× 5 · ср. <b style="color:#F59E0B">8.4</b></span></li><li><span class="ctext">«Сильная экспертиза, провёл внутреннее обучение»</span><span class="cmeta">× 5 · ср. <b style="color:#00C76E">8.6</b></span></li><li><span class="ctext">«Не отвечает на сообщения по несколько дней»</span><span class="cmeta">× 5 · ср. <b style="color:#EF4444">3.4</b></span></li><li><span class="ctext">«Закрыл сделку раньше срока, подставил плечо команде»</span><span class="cmeta">× 3 · ср. <b style="color:#F59E0B">8.0</b></span></li><li><span class="ctext">«Стабильно выполняет задачи»</span><span class="cmeta">× 3 · ср. <b style="color:#EF4444">6.7</b></span></li><li><span class="ctext">«В целом нормально, есть к чему стремиться»</span><span class="cmeta">× 3 · ср. <b style="color:#EF4444">5.7</b></span></li><li><span class="ctext">«Игнорирует обратную связь от команды»</span><span class="cmeta">× 3 · ср. <b style="color:#EF4444">3.7</b></span></li><li><span class="ctext">«Перекладывает ответственность на коллег»</span><span class="cmeta">× 2 · ср. <b style="color:#EF4444">3.0</b></span></li><li><span class="ctext">«Чётко выстроил процесс, всё прозрачно»</span><span class="cmeta">× 1 · ср. <b style="color:#F59E0B">8.0</b></span></li><li><span class="ctext">«Ровно отработал период»</span><span class="cmeta">× 1 · ср. <b style="color:#EF4444">6.0</b></span></li><li><span class="ctext">«Срывает договорённости без предупреждения»</span><span class="cmeta">× 1 · ср. <b style="color:#EF4444">3.0</b></span></li></ul></div></div>
+      </div>
+    </div><div class="pcard">
+      <div class="pcard-head">
+        
+        <div class="pcard-id">
           <div class="pcard-name">Yuldasheva Madina <span class="badge head">Руководитель · Head of Customer Care</span></div>
           <div class="pcard-meta">Customer Care · Sales Doctor</div>
         </div>
@@ -2033,6 +2128,26 @@ tr.muted td{ color:#b6c2c2; }
       <div class="pcard-head">
         
         <div class="pcard-id">
+          <div class="pcard-name">Sulaymonov Otabek <span class="badge exec">Executive · CCO</span></div>
+          <div class="pcard-meta">Sales · Sales Doctor</div>
+        </div>
+        <div class="pcard-scores">
+          <div class="ps main"><div class="ps-v" style="color:#EF4444">6.2</div><div class="ps-l">Общий балл (DCS)</div></div>
+          <div class="ps"><div class="ps-v">7.0</div><div class="ps-l">Средний</div></div>
+          <div class="ps"><div class="ps-v">362</div><div class="ps-l">Всего баллов</div></div>
+          <div class="ps"><div class="ps-v">13</div><div class="ps-l">Оценок</div></div>
+          <div class="ps"><div class="ps-v">0%</div><div class="ps-l">Охват</div></div>
+        </div>
+      </div>
+      <div class="pcard-delta"><span class="delta down">▼ -0.6 к компании</span></div>
+      <div class="pcard-body">
+        <div class="pcard-vals"><div class="vrow"><span class="vname">Приверженность</span><div class="bar"><div class="bar-fill" style="width:68.0%;background:#EF4444"></div></div><span class="vval" style="color:#EF4444">6.8</span></div><div class="vrow"><span class="vname">Коммуникация</span><div class="bar"><div class="bar-fill" style="width:73.0%;background:#F59E0B"></div></div><span class="vval" style="color:#F59E0B">7.3</span></div><div class="vrow"><span class="vname">Экспертиза</span><div class="bar"><div class="bar-fill" style="width:69.0%;background:#EF4444"></div></div><span class="vval" style="color:#EF4444">6.9</span></div><div class="vrow"><span class="vname">Личность</span><div class="bar"><div class="bar-fill" style="width:68.0%;background:#EF4444"></div></div><span class="vval" style="color:#EF4444">6.8</span></div></div>
+        <div class="pcard-coms"><div class="csect"><div class="chdr">Отзывы руководителей <span class="cnamed">— с указанием имени</span></div><ul class="clist"><li><span class="cauthor">Abidov Davron<span class="crole">CEO</span></span><span class="ctext">«Стабильно выполняет задачи»</span><span class="cscore" style="color:#EF4444">5</span></li><li><span class="cauthor">Abidov Davron<span class="crole">CEO</span></span><span class="ctext">«Срывает договорённости без предупреждения»</span><span class="cscore" style="color:#EF4444">3</span></li></ul></div><div class="csect"><div class="chdr">Отзывы коллег <span class="canon">— анонимно</span></div><ul class="clist peer"><li><span class="ctext">«Помог новичку без напоминаний»</span><span class="cmeta">× 4 · ср. <b style="color:#F59E0B">8.2</b></span></li><li><span class="ctext">«Взял на себя сложный кейс и довёл до конца»</span><span class="cmeta">× 3 · ср. <b style="color:#F59E0B">8.0</b></span></li><li><span class="ctext">«Закрыл сделку раньше срока, подставил плечо команде»</span><span class="cmeta">× 2 · ср. <b style="color:#F59E0B">8.0</b></span></li><li><span class="ctext">«Сильная экспертиза, провёл внутреннее обучение»</span><span class="cmeta">× 1 · ср. <b style="color:#F59E0B">8.0</b></span></li><li><span class="ctext">«Чётко выстроил процесс, всё прозрачно»</span><span class="cmeta">× 1 · ср. <b style="color:#F59E0B">8.0</b></span></li><li><span class="ctext">«Образцовая координация с другими отделами»</span><span class="cmeta">× 1 · ср. <b style="color:#F59E0B">8.0</b></span></li><li><span class="ctext">«В целом нормально, есть к чему стремиться»</span><span class="cmeta">× 1 · ср. <b style="color:#EF4444">6.0</b></span></li><li><span class="ctext">«Перекладывает ответственность на коллег»</span><span class="cmeta">× 1 · ср. <b style="color:#EF4444">4.0</b></span></li></ul></div></div>
+      </div>
+    </div><div class="pcard">
+      <div class="pcard-head">
+        
+        <div class="pcard-id">
           <div class="pcard-name">Abdullayev Alisher </div>
           <div class="pcard-meta">Development · iDokon</div>
         </div>
@@ -2053,6 +2168,54 @@ tr.muted td{ color:#b6c2c2; }
 </div>
 
 <div class="page pb">
+  <h2><span class="dot">✎</span> Приложение А — Аудит комментариев <span class="sub">(что оставлено, что нет)</span></h2>
+  <div class="note">
+    В отчёт включены <b>только одобренные модератором</b> отзывы (реальные и честные). В опросе
+    <b>13 уникальных текстов</b> (2724 упоминаний). <b>Оставлено: 2185</b> (одобрено).
+    Исключено: <b>440</b> на модерации (не проверены) + <b>99</b> отклонено модератором.
+    Все 13 текстов — настоящие содержательные отзывы; ни один не исключён как «фейк» —
+    отбор идёт только по статусу модерации каждого экземпляра.
+  </div>
+  <div class="card" style="padding:6px 14px">
+  <table class="audit">
+    <thead><tr><th>Текст комментария</th><th style="text-align:right">Всего</th>
+      <th style="text-align:right">✓ В отчёте</th><th style="text-align:right">На модер.</th>
+      <th style="text-align:right">✗ Откл.</th><th style="text-align:right">Балл</th></tr></thead>
+    <tbody><tr><td class="ctext2">«Чётко выстроил процесс, всё прозрачно»</td><td class="num">349</td><td class="num keepyes">236</td><td class="num keepno">93</td><td class="num rej">20</td><td class="num">8–10</td></tr><tr><td class="ctext2">«Помог новичку без напоминаний»</td><td class="num">336</td><td class="num keepyes">225</td><td class="num keepno">91</td><td class="num rej">20</td><td class="num">8–10</td></tr><tr><td class="ctext2">«Образцовая координация с другими отделами»</td><td class="num">329</td><td class="num keepyes">251</td><td class="num keepno">68</td><td class="num rej">10</td><td class="num">8–10</td></tr><tr><td class="ctext2">«Взял на себя сложный кейс и довёл до конца»</td><td class="num">303</td><td class="num keepyes">231</td><td class="num keepno">59</td><td class="num rej">13</td><td class="num">8–10</td></tr><tr><td class="ctext2">«Закрыл сделку раньше срока, подставил плечо команде»</td><td class="num">282</td><td class="num keepyes">205</td><td class="num keepno">56</td><td class="num rej">21</td><td class="num">8–10</td></tr><tr><td class="ctext2">«Сильная экспертиза, провёл внутреннее обучение»</td><td class="num">266</td><td class="num keepyes">178</td><td class="num keepno">73</td><td class="num rej">15</td><td class="num">8–10</td></tr><tr><td class="ctext2">«В целом нормально, есть к чему стремиться»</td><td class="num">177</td><td class="num keepyes">177</td><td class="num keepno">0</td><td class="num rej">0</td><td class="num">5–7</td></tr><tr><td class="ctext2">«Стабильно выполняет задачи»</td><td class="num">167</td><td class="num keepyes">167</td><td class="num keepno">0</td><td class="num rej">0</td><td class="num">5–7</td></tr><tr><td class="ctext2">«Ровно отработал период»</td><td class="num">162</td><td class="num keepyes">162</td><td class="num keepno">0</td><td class="num rej">0</td><td class="num">5–7</td></tr><tr><td class="ctext2">«Срывает договорённости без предупреждения»</td><td class="num">96</td><td class="num keepyes">96</td><td class="num keepno">0</td><td class="num rej">0</td><td class="num">3–4</td></tr><tr><td class="ctext2">«Не отвечает на сообщения по несколько дней»</td><td class="num">94</td><td class="num keepyes">94</td><td class="num keepno">0</td><td class="num rej">0</td><td class="num">3–4</td></tr><tr><td class="ctext2">«Игнорирует обратную связь от команды»</td><td class="num">88</td><td class="num keepyes">88</td><td class="num keepno">0</td><td class="num rej">0</td><td class="num">3–4</td></tr><tr><td class="ctext2">«Перекладывает ответственность на коллег»</td><td class="num">75</td><td class="num keepyes">75</td><td class="num keepno">0</td><td class="num rej">0</td><td class="num">3–4</td></tr>
+      <tr class="totalrow"><td>ИТОГО (13)</td><td class="num">2724</td>
+      <td class="num keepyes">2185</td><td class="num keepno">440</td>
+      <td class="num rej">99</td><td></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="legend" style="margin-top:10px">
+    <b>Правило:</b> оставлены только экземпляры со статусом <b>«одобрено»</b> (прошли модерацию = честные).
+    «На модерации» (не проверены) и «отклонено» (модератор счёл невалидным) — исключены как текст;
+    при этом отклонённые всё же учтены в баллах как 5.
+  </div>
+</div>
+
+<div class="page pb">
+  <h2><span class="dot">✦</span> Приложение Б — Как построен ТОП <span class="sub">(полная таблица)</span></h2>
+  <div class="note">
+    <b>Рейтинг</b> = Байесовская (взвешенная по доверию) оценка:
+    <span class="mono">(V/(V+10)) · DCS + (10/(V+10)) · 6.8</span>,
+    V — число оценивших. Ниже — <b>все 79 сотрудников</b> (кроме Executive), по этому рейтингу;
+    <b class="hotmark">ТОП-15 выделен</b>. Колонка «ср×охват» — прежний метод (для сравнения):
+    он завышал маленькие команды (100% охвата при 5 оценках), поэтому заменён на рейтинг доверия.
+  </div>
+  <div class="card" style="padding:6px 14px">
+  <table class="audit">
+    <thead><tr><th>#</th><th>Сотрудник</th><th style="text-align:right">Рейтинг</th>
+      <th style="text-align:right">DCS</th><th style="text-align:right">Средний</th>
+      <th style="text-align:right">Оценок</th><th style="text-align:right">Охват</th>
+      <th style="text-align:right">ср×охват</th></tr></thead>
+    <tbody><tr class="hot"><td class="rank">1</td><td class="name">Madaminov Feruz<div class="tmeta">HR · Global</div></td><td class="num" style="color:#F59E0B;font-weight:800">7.15</td><td class="num">7.5</td><td class="num">7.2</td><td class="num">10</td><td class="num">100%</td><td class="num">7.2</td></tr><tr class="hot"><td class="rank">2</td><td class="name">Mukumjanov Mansur<div class="tmeta">Development · iBox</div></td><td class="num" style="color:#F59E0B;font-weight:800">7.1</td><td class="num">7.3</td><td class="num">6.9</td><td class="num">15</td><td class="num">52%</td><td class="num">3.588</td></tr><tr class="hot"><td class="rank">3</td><td class="name">Kamarov Jamoliddin<div class="tmeta">Sales · Sales Doctor</div></td><td class="num" style="color:#F59E0B;font-weight:800">7.09</td><td class="num">7.3</td><td class="num">6.8</td><td class="num">14</td><td class="num">26%</td><td class="num">1.768</td></tr><tr class="hot"><td class="rank">4</td><td class="name">Tursunaliyev Sardorbek<div class="tmeta">Development · Sales Doctor</div></td><td class="num" style="color:#F59E0B;font-weight:800">7.07</td><td class="num">7.2</td><td class="num">7.0</td><td class="num">20</td><td class="num">36%</td><td class="num">2.52</td></tr><tr class="hot"><td class="rank">5</td><td class="name">Boboqulov Jasur<div class="tmeta">Development · iDokon</div></td><td class="num" style="color:#F59E0B;font-weight:800">7.07</td><td class="num">7.6</td><td class="num">7.7</td><td class="num">5</td><td class="num">62%</td><td class="num">4.774</td></tr><tr class="hot"><td class="rank">6</td><td class="name">Toksanbayeva Albina<div class="tmeta">Customer Care · Sales Doctor</div></td><td class="num" style="color:#F59E0B;font-weight:800">7.06</td><td class="num">7.2</td><td class="num">7.0</td><td class="num">19</td><td class="num">35%</td><td class="num">2.45</td></tr><tr class="hot"><td class="rank">7</td><td class="name">Izzattillayev Jamshid<div class="tmeta">Development · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.99</td><td class="num">7.1</td><td class="num">7.0</td><td class="num">18</td><td class="num">33%</td><td class="num">2.31</td></tr><tr class="hot"><td class="rank">8</td><td class="name">Tulaganov Jamshid<div class="tmeta">Development · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.98</td><td class="num">7.1</td><td class="num">6.9</td><td class="num">15</td><td class="num">27%</td><td class="num">1.863</td></tr><tr class="hot"><td class="rank">9</td><td class="name">Muminov Davron<div class="tmeta">Development · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.97</td><td class="num">7.1</td><td class="num">7.0</td><td class="num">14</td><td class="num">25%</td><td class="num">1.75</td></tr><tr class="hot"><td class="rank">10</td><td class="name">Ashuraliyev Xoshimxon<div class="tmeta">Development · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.97</td><td class="num">7.1</td><td class="num">7.1</td><td class="num">13</td><td class="num">45%</td><td class="num">3.195</td></tr><tr class="hot"><td class="rank">11</td><td class="name">Abduraxmonov Abdulaziz<div class="tmeta">Sales · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.96</td><td class="num">7.1</td><td class="num">7.1</td><td class="num">11</td><td class="num">39%</td><td class="num">2.769</td></tr><tr class="hot"><td class="rank">12</td><td class="name">Xayrullina Valeriya<div class="tmeta">Accounting and Finance · Global</div></td><td class="num" style="color:#EF4444;font-weight:800">6.95</td><td class="num">7.0</td><td class="num">7.0</td><td class="num">32</td><td class="num">32%</td><td class="num">2.24</td></tr><tr class="hot"><td class="rank">13</td><td class="name">Burxonov Ulugbek<div class="tmeta">Customer Care · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.94</td><td class="num">7.0</td><td class="num">7.1</td><td class="num">21</td><td class="num">38%</td><td class="num">2.698</td></tr><tr class="hot"><td class="rank">14</td><td class="name">Sabirdjanov Suroj<div class="tmeta">Customer Care · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.93</td><td class="num">7.0</td><td class="num">6.7</td><td class="num">19</td><td class="num">35%</td><td class="num">2.345</td></tr><tr class="hot"><td class="rank">15</td><td class="name">Tojiyev Ikrom<div class="tmeta">Sales · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.93</td><td class="num">7.0</td><td class="num">6.7</td><td class="num">17</td><td class="num">31%</td><td class="num">2.077</td></tr><tr><td class="rank">16</td><td class="name">Tulkin Bobomirzayev<div class="tmeta">Customer Care · iDokon</div></td><td class="num" style="color:#EF4444;font-weight:800">6.93</td><td class="num">7.2</td><td class="num">7.2</td><td class="num">5</td><td class="num">100%</td><td class="num">7.2</td></tr><tr><td class="rank">17</td><td class="name">Tojiyev Shaxzod<div class="tmeta">Development · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.92</td><td class="num">7.0</td><td class="num">7.0</td><td class="num">16</td><td class="num">29%</td><td class="num">2.03</td></tr><tr><td class="rank">18</td><td class="name">Norboyev Abdulla<div class="tmeta">Sales · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.92</td><td class="num">7.0</td><td class="num">7.1</td><td class="num">16</td><td class="num">30%</td><td class="num">2.13</td></tr><tr><td class="rank">19</td><td class="name">Orifjonov Rahmatullo<div class="tmeta">Sales · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.92</td><td class="num">7.0</td><td class="num">7.1</td><td class="num">14</td><td class="num">50%</td><td class="num">3.55</td></tr><tr><td class="rank">20</td><td class="name">Toshpulatov Rustam<div class="tmeta">Development · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.91</td><td class="num">7.0</td><td class="num">6.9</td><td class="num">13</td><td class="num">45%</td><td class="num">3.105</td></tr><tr><td class="rank">21</td><td class="name">Ashuraliyev Polatxon<div class="tmeta">Sales · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.9</td><td class="num">7.0</td><td class="num">7.1</td><td class="num">11</td><td class="num">39%</td><td class="num">2.769</td></tr><tr><td class="rank">22</td><td class="name">Samadov Diyorbek<div class="tmeta">Marketing · Global</div></td><td class="num" style="color:#EF4444;font-weight:800">6.9</td><td class="num">7.0</td><td class="num">7.0</td><td class="num">10</td><td class="num">10%</td><td class="num">0.7</td></tr><tr><td class="rank">23</td><td class="name">Adilov Ilhom<div class="tmeta">Accounting and Finance · Global</div></td><td class="num" style="color:#EF4444;font-weight:800">6.88</td><td class="num">6.9</td><td class="num">7.0</td><td class="num">39</td><td class="num">39%</td><td class="num">2.73</td></tr><tr><td class="rank">24</td><td class="name">Yodgorova Nodira<div class="tmeta">HR · Global</div></td><td class="num" style="color:#EF4444;font-weight:800">6.87</td><td class="num">6.9</td><td class="num">7.0</td><td class="num">26</td><td class="num">26%</td><td class="num">1.82</td></tr><tr><td class="rank">25</td><td class="name">Sobirov Bilol<div class="tmeta">Development · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.87</td><td class="num">6.9</td><td class="num">6.9</td><td class="num">19</td><td class="num">35%</td><td class="num">2.415</td></tr><tr><td class="rank">26</td><td class="name">Yolchiboyev Komiljon<div class="tmeta">Sales · iDokon</div></td><td class="num" style="color:#EF4444;font-weight:800">6.87</td><td class="num">7.1</td><td class="num">7.1</td><td class="num">3</td><td class="num">38%</td><td class="num">2.698</td></tr><tr><td class="rank">27</td><td class="name">Ruziyeva Madina<div class="tmeta">Customer Care · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.86</td><td class="num">6.9</td><td class="num">7.0</td><td class="num">17</td><td class="num">31%</td><td class="num">2.17</td></tr><tr><td class="rank">28</td><td class="name">Normurodova Sabina<div class="tmeta">Customer Care · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.86</td><td class="num">6.9</td><td class="num">6.7</td><td class="num">17</td><td class="num">31%</td><td class="num">2.077</td></tr><tr><td class="rank">29</td><td class="name">Ummatov Davron<div class="tmeta">Key Account · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.86</td><td class="num">6.9</td><td class="num">6.9</td><td class="num">17</td><td class="num">31%</td><td class="num">2.139</td></tr><tr><td class="rank">30</td><td class="name">Xujamatov Obid<div class="tmeta">Development · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.86</td><td class="num">6.9</td><td class="num">7.0</td><td class="num">16</td><td class="num">55%</td><td class="num">3.85</td></tr><tr><td class="rank">31</td><td class="name">Ubaydullayev Bilolxon<div class="tmeta">Development · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.86</td><td class="num">6.9</td><td class="num">6.9</td><td class="num">15</td><td class="num">27%</td><td class="num">1.863</td></tr><tr><td class="rank">32</td><td class="name">Egamberdiyev Sanjar<div class="tmeta">Customer Care · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.86</td><td class="num">6.9</td><td class="num">6.8</td><td class="num">15</td><td class="num">52%</td><td class="num">3.536</td></tr><tr><td class="rank">33</td><td class="name">Jurayev Sanjar<div class="tmeta">Customer Care · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.86</td><td class="num">6.9</td><td class="num">6.8</td><td class="num">15</td><td class="num">52%</td><td class="num">3.536</td></tr><tr><td class="rank">34</td><td class="name">Mirkasimov Oybek<div class="tmeta">Key Account · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.86</td><td class="num">6.9</td><td class="num">7.0</td><td class="num">13</td><td class="num">24%</td><td class="num">1.68</td></tr><tr><td class="rank">35</td><td class="name">Tulanov Abdulloh<div class="tmeta">Sales · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.85</td><td class="num">6.9</td><td class="num">6.8</td><td class="num">12</td><td class="num">43%</td><td class="num">2.924</td></tr><tr><td class="rank">36</td><td class="name">Umarova Mashhura<div class="tmeta">HR · Global</div></td><td class="num" style="color:#EF4444;font-weight:800">6.8</td><td class="num">6.8</td><td class="num">6.9</td><td class="num">34</td><td class="num">34%</td><td class="num">2.346</td></tr><tr><td class="rank">37</td><td class="name">Arutyunyan Anna<div class="tmeta">Business Development · Global</div></td><td class="num" style="color:#EF4444;font-weight:800">6.8</td><td class="num">6.8</td><td class="num">6.8</td><td class="num">33</td><td class="num">33%</td><td class="num">2.244</td></tr><tr><td class="rank">38</td><td class="name">Uktamova Sohiba<div class="tmeta">Business Development · Global</div></td><td class="num" style="color:#EF4444;font-weight:800">6.8</td><td class="num">6.8</td><td class="num">6.9</td><td class="num">29</td><td class="num">29%</td><td class="num">2.001</td></tr><tr><td class="rank">39</td><td class="name">Kucharov Inomjon<div class="tmeta">Development · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.8</td><td class="num">6.8</td><td class="num">6.6</td><td class="num">21</td><td class="num">38%</td><td class="num">2.508</td></tr><tr><td class="rank">40</td><td class="name">Jumayev Alisher<div class="tmeta">Development · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.8</td><td class="num">6.8</td><td class="num">6.9</td><td class="num">20</td><td class="num">36%</td><td class="num">2.484</td></tr><tr><td class="rank">41</td><td class="name">Xojaxonov G&#x27;ayratxon<div class="tmeta">Development · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.8</td><td class="num">6.8</td><td class="num">6.7</td><td class="num">20</td><td class="num">36%</td><td class="num">2.412</td></tr><tr><td class="rank">42</td><td class="name">Sattorov Sanjar<div class="tmeta">Customer Care · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.8</td><td class="num">6.8</td><td class="num">6.9</td><td class="num">18</td><td class="num">33%</td><td class="num">2.277</td></tr><tr><td class="rank">43</td><td class="name">Usmonov Sherzod<div class="tmeta">Development · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.8</td><td class="num">6.8</td><td class="num">6.8</td><td class="num">17</td><td class="num">31%</td><td class="num">2.108</td></tr><tr><td class="rank">44</td><td class="name">Jo&#x27;rayev Sardor<div class="tmeta">Key Account · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.8</td><td class="num">6.8</td><td class="num">6.8</td><td class="num">15</td><td class="num">28%</td><td class="num">1.904</td></tr><tr><td class="rank">45</td><td class="name">Shadiyev Jasur<div class="tmeta">Sales · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.8</td><td class="num">6.8</td><td class="num">6.8</td><td class="num">13</td><td class="num">24%</td><td class="num">1.632</td></tr><tr><td class="rank">46</td><td class="name">Toirjonov Humoyun<div class="tmeta">Sales · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.8</td><td class="num">6.8</td><td class="num">6.7</td><td class="num">13</td><td class="num">24%</td><td class="num">1.608</td></tr><tr><td class="rank">47</td><td class="name">Sobirova Mamura<div class="tmeta">Customer Care · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.8</td><td class="num">6.8</td><td class="num">6.7</td><td class="num">13</td><td class="num">45%</td><td class="num">3.015</td></tr><tr><td class="rank">48</td><td class="name">Shukurillayev Oybek<div class="tmeta">Sales · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.8</td><td class="num">6.8</td><td class="num">7.0</td><td class="num">12</td><td class="num">43%</td><td class="num">3.01</td></tr><tr><td class="rank">49</td><td class="name">Rustamova Samira<div class="tmeta">Sales · iDokon</div></td><td class="num" style="color:#EF4444;font-weight:800">6.8</td><td class="num">6.8</td><td class="num">6.9</td><td class="num">5</td><td class="num">62%</td><td class="num">4.278</td></tr><tr><td class="rank">50</td><td class="name">Afzal Abrorov<div class="tmeta">Руководство · iDokon</div></td><td class="num" style="color:#EF4444;font-weight:800">6.8</td><td class="num">6.8</td><td class="num">6.8</td><td class="num">3</td><td class="num">50%</td><td class="num">3.4</td></tr><tr><td class="rank">51</td><td class="name">Anvarbekov Asadbek<div class="tmeta">Development · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.75</td><td class="num">6.7</td><td class="num">6.6</td><td class="num">10</td><td class="num">100%</td><td class="num">6.6</td></tr><tr><td class="rank">52</td><td class="name">Muhsimov Azizbek<div class="tmeta">Customer Care · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.74</td><td class="num">6.7</td><td class="num">6.8</td><td class="num">18</td><td class="num">33%</td><td class="num">2.244</td></tr><tr><td class="rank">53</td><td class="name">Mirabbosov Ismoil<div class="tmeta">Development · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.74</td><td class="num">6.7</td><td class="num">7.2</td><td class="num">16</td><td class="num">29%</td><td class="num">2.088</td></tr><tr><td class="rank">54</td><td class="name">Nazarov Nodir<div class="tmeta">Key Account · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.74</td><td class="num">6.7</td><td class="num">6.9</td><td class="num">16</td><td class="num">30%</td><td class="num">2.07</td></tr><tr><td class="rank">55</td><td class="name">Yuldasheva Madina<div class="tmeta">Customer Care · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.74</td><td class="num">6.7</td><td class="num">6.8</td><td class="num">15</td><td class="num">58%</td><td class="num">3.944</td></tr><tr><td class="rank">56</td><td class="name">Saidnabiyev Saidazim<div class="tmeta">Development · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.74</td><td class="num">6.7</td><td class="num">6.6</td><td class="num">15</td><td class="num">27%</td><td class="num">1.782</td></tr><tr><td class="rank">57</td><td class="name">Vaxobov Saloxiddin<div class="tmeta">Customer Care · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.74</td><td class="num">6.7</td><td class="num">6.9</td><td class="num">14</td><td class="num">48%</td><td class="num">3.312</td></tr><tr><td class="rank">58</td><td class="name">Maxkamov Behzodxon<div class="tmeta">Development · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.73</td><td class="num">6.7</td><td class="num">6.8</td><td class="num">20</td><td class="num">36%</td><td class="num">2.448</td></tr><tr><td class="rank">59</td><td class="name">Ibragimova Irina<div class="tmeta">Accounting and Finance · Global</div></td><td class="num" style="color:#EF4444;font-weight:800">6.72</td><td class="num">6.7</td><td class="num">6.7</td><td class="num">33</td><td class="num">33%</td><td class="num">2.211</td></tr><tr><td class="rank">60</td><td class="name">Muhammadiev Zohid<div class="tmeta">Customer Care · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.69</td><td class="num">6.6</td><td class="num">6.6</td><td class="num">13</td><td class="num">45%</td><td class="num">2.97</td></tr><tr><td class="rank">61</td><td class="name">Xayitbayeva Madina<div class="tmeta">Customer Care · iDokon</div></td><td class="num" style="color:#EF4444;font-weight:800">6.69</td><td class="num">6.4</td><td class="num">6.4</td><td class="num">4</td><td class="num">44%</td><td class="num">2.816</td></tr><tr><td class="rank">62</td><td class="name">Tursunboyev Ibrohim<div class="tmeta">Customer Care · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.68</td><td class="num">6.6</td><td class="num">6.6</td><td class="num">14</td><td class="num">48%</td><td class="num">3.168</td></tr><tr><td class="rank">63</td><td class="name">Tillayev Ulug&#x27;bek<div class="tmeta">Development · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.68</td><td class="num">6.6</td><td class="num">6.5</td><td class="num">14</td><td class="num">48%</td><td class="num">3.12</td></tr><tr><td class="rank">64</td><td class="name">Ashiraliyev Zokirjon<div class="tmeta">Development · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.67</td><td class="num">6.6</td><td class="num">6.8</td><td class="num">18</td><td class="num">33%</td><td class="num">2.244</td></tr><tr><td class="rank">65</td><td class="name">Rahimov Abubakir<div class="tmeta">Sales · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.67</td><td class="num">6.6</td><td class="num">6.6</td><td class="num">18</td><td class="num">33%</td><td class="num">2.178</td></tr><tr><td class="rank">66</td><td class="name">Asanov Abdurashid<div class="tmeta">Development · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.67</td><td class="num">6.4</td><td class="num">6.3</td><td class="num">5</td><td class="num">18%</td><td class="num">1.134</td></tr><tr><td class="rank">67</td><td class="name">Kuzieva Anna<div class="tmeta">HR · Global</div></td><td class="num" style="color:#EF4444;font-weight:800">6.65</td><td class="num">6.6</td><td class="num">6.6</td><td class="num">30</td><td class="num">30%</td><td class="num">1.98</td></tr><tr><td class="rank">68</td><td class="name">Xayrullayev Jafar<div class="tmeta">Marketing · Global</div></td><td class="num" style="color:#EF4444;font-weight:800">6.65</td><td class="num">6.6</td><td class="num">6.7</td><td class="num">28</td><td class="num">28%</td><td class="num">1.876</td></tr><tr><td class="rank">69</td><td class="name">Bichkova Anastasiya<div class="tmeta">Marketing · Global</div></td><td class="num" style="color:#EF4444;font-weight:800">6.64</td><td class="num">6.6</td><td class="num">6.7</td><td class="num">36</td><td class="num">36%</td><td class="num">2.412</td></tr><tr><td class="rank">70</td><td class="name">Bazaraliyev Sohib<div class="tmeta">Sales · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.62</td><td class="num">6.5</td><td class="num">6.4</td><td class="num">16</td><td class="num">57%</td><td class="num">3.648</td></tr><tr><td class="rank">71</td><td class="name">Abdulvohid Abdulaziz (Churn Manager)<div class="tmeta">Customer Care · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.6</td><td class="num">6.5</td><td class="num">6.8</td><td class="num">19</td><td class="num">35%</td><td class="num">2.38</td></tr><tr><td class="rank">72</td><td class="name">Qahramonov Shaxzodbek<div class="tmeta">Customer Care · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.57</td><td class="num">6.4</td><td class="num">7.0</td><td class="num">13</td><td class="num">45%</td><td class="num">3.15</td></tr><tr><td class="rank">73</td><td class="name">Abdullayev Alisher<div class="tmeta">Development · iDokon</div></td><td class="num" style="color:#EF4444;font-weight:800">6.57</td><td class="num">6.1</td><td class="num">6.2</td><td class="num">5</td><td class="num">62%</td><td class="num">3.844</td></tr><tr><td class="rank">74</td><td class="name">Xusanov Muxammadali<div class="tmeta">Customer Care · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.54</td><td class="num">6.4</td><td class="num">6.5</td><td class="num">18</td><td class="num">33%</td><td class="num">2.145</td></tr><tr><td class="rank">75</td><td class="name">Abduvosikov Abdulbosit<div class="tmeta">Development · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.54</td><td class="num">6.4</td><td class="num">6.8</td><td class="num">18</td><td class="num">33%</td><td class="num">2.244</td></tr><tr><td class="rank">76</td><td class="name">Bahtiyorova Intizor<div class="tmeta">Customer Care · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.53</td><td class="num">6.4</td><td class="num">6.6</td><td class="num">21</td><td class="num">38%</td><td class="num">2.508</td></tr><tr><td class="rank">77</td><td class="name">Ibragimov Muhammadamin<div class="tmeta">Development · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.52</td><td class="num">6.3</td><td class="num">6.5</td><td class="num">13</td><td class="num">45%</td><td class="num">2.925</td></tr><tr><td class="rank">78</td><td class="name">Xursanaliyev Abdullajon<div class="tmeta">Development · iBox</div></td><td class="num" style="color:#EF4444;font-weight:800">6.51</td><td class="num">6.3</td><td class="num">6.7</td><td class="num">14</td><td class="num">48%</td><td class="num">3.216</td></tr><tr><td class="rank">79</td><td class="name">Ubaydullayev Avazxon<div class="tmeta">Development · Sales Doctor</div></td><td class="num" style="color:#EF4444;font-weight:800">6.47</td><td class="num">6.3</td><td class="num">6.8</td><td class="num">20</td><td class="num">36%</td><td class="num">2.448</td></tr></tbody>
+  </table>
+  </div>
+</div>
+
+<div class="page pb">
   <h2><span class="dot">ℹ</span> Методология и обозначения</h2>
   <div class="card legend">
     <p><b>DCS (общий балл)</b> — взвешенная композитная оценка. Final (оценки руководителей) и Peer (оценки коллег)
@@ -2062,6 +2225,10 @@ tr.muted td{ color:#b6c2c2; }
        <b>Всего баллов</b> — сумма всех полученных оценок. <b>Охват</b> — доля оценивших из числа обязанных оценить.</p>
     <p><b>Отклонённые</b> оценки (модерация) учитываются в баллах как 5; пропущенные («не знаю») — исключаются.</p>
     <p><b>4 ценности:</b> Приверженность, Коммуникация, Экспертиза, Личность.</p>
+    <p><b>ТОП-15 (рейтинг доверия):</b> Байесовская оценка
+       <span class="mono">(V/(V+10))·DCS + (10/(V+10))·6.8</span> —
+       поднимает хороший балл, подтверждённый многими оценивающими, и не даёт малой выборке (2–3 голоса)
+       случайно попасть наверх. Полная таблица — Приложение Б, аудит отзывов — Приложение А.</p>
     <p><b>Комментарии:</b> в отчёт включены только одобренные модератором отзывы (реальные и честные);
        отклонённые и непроверенные исключены. Руководители названы по имени; рядовые сотрудники анонимны.</p>
     <div class="scalekey"><span><i class="sw" style="background:#00C76E"></i> ≥ 8.5 — высокий</span><span><i class="sw" style="background:#F59E0B"></i> 7.0–8.4 — средний</span><span><i class="sw" style="background:#EF4444"></i> &lt; 7.0 — низкий</span></div>

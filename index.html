@@ -277,6 +277,8 @@ const numClamp=(v,min,max,def)=>{const n=parseFloat(v);if(!isFinite(n))return de
 // caseHighReq = score at/above which a written case is MANDATORY (decoupled from caseHigh = green-flag/color zone).
 // Default == caseHigh → byte-for-byte legacy behaviour (case ≥9). HRD R2: caseHighReq=8 (case at 8) while green/moderation stay 9.
 const RULES_DEFAULT={caseHigh:9,caseLow:4,caseHighReq:9,moderationThreshold:9,rejectScore:5,caseRequiredHigh:true,caseRequiredLow:true};
+// Минимальная длина обязательного кейса (символов). Дублируется в api/index.php → CASE_MIN_CHARS.
+const CASE_MIN_CHARS=25;
 function parseRules(settings){
   let raw=settings&&settings.rulesConfig;
   if(typeof raw==='string'){try{raw=JSON.parse(raw);}catch(_){raw=null;}}
@@ -1456,7 +1458,7 @@ function SurveyView({user,setView,setUser,onSubmit,evals,theme,t,allEmps,cfg,rul
     setScores(ns);
     if(targetId) draftsRef.current[targetId]=ns;
   };
-  const okTxt=tx=>tx.trim().length>5;
+  const okTxt=tx=>tx.trim().length>=CASE_MIN_CHARS;
   const okVal=v=>{if(v.skipped)return true;if(!v.score)return false;if(caseRequired(v.score,rules)&&!okTxt(v.text))return false;return true;};
   const formOk=targetId&&Object.values(scores).every(okVal)&&Object.values(scores).some(v=>v.score>0||v.skipped);
 
@@ -1803,7 +1805,7 @@ function SurveyView({user,setView,setUser,onSubmit,evals,theme,t,allEmps,cfg,rul
                     <textarea value={v.text} onChange={e=>chgT(key,e.target.value)} placeholder={ph} rows={3}
                       className={`w-full px-4 py-3 rounded-xl text-sm border outline-none transition-all resize-none ${theme.input} ${theme.txt} ${needsTxt&&!okTxt(v.text)?'border-red-500/50 focus:border-red-500 ring-1 ring-red-500/30':`${theme.border} focus:border-[#00C76E] focus:ring-2 focus:ring-[#00C76E]/15`}`}/>
                     <div className="absolute top-3 right-3 pointer-events-none">
-                      {needsTxt&&(okTxt(v.text)?<CheckCircle size={15} className="text-[#00C76E]"/>:<span className={`text-[10px] font-bold text-red-400 ${theme.input} px-2 py-1 rounded-lg`}>{t.case_need}</span>)}
+                      {needsTxt&&(okTxt(v.text)?<CheckCircle size={15} className="text-[#00C76E]"/>:<span className={`text-[10px] font-bold text-red-400 ${theme.input} px-2 py-1 rounded-lg`}>{t.case_need} · {Math.max(0,CASE_MIN_CHARS-(v.text||'').trim().length)}</span>)}
                     </div>
                   </div>
                 )}
@@ -2195,6 +2197,8 @@ function EmpProfileModal({emp,onSave,onClose,theme,t,isSuperAdmin,allEmps,cfg={}
 }
 
 /* ── BIRTHDAY CALENDAR ────────────────────────────────────── */
+// Даты в базе хранятся как ДД.ММ.ГГГГ — их нельзя отдавать new Date() (либо Invalid Date, либо чтение как ММ.ДД).
+function parseDMY(v){const m=String(v||'').trim().match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{4})$/);if(m){const d=new Date(+m[3],+m[2]-1,+m[1]);return (d.getDate()==+m[1]&&d.getMonth()==+m[2]-1)?d:null;}const d=new Date(v);return isNaN(d.getTime())?null:d;}
 function BirthdayCalendar({allEmps,theme,t}){
   const{photos}=useContext(PhotoCtx);   // B-4: photos no longer ride on allEmps
   const now=new Date();
@@ -2203,12 +2207,13 @@ function BirthdayCalendar({allEmps,theme,t}){
   const[calMonth,setCalMonth]=useState(now.getMonth());
 
   const birthdays=allEmps.filter(e=>e.active!=0&&e.birth_date).map(e=>{
-    const bd=new Date(e.birth_date);
+    const bd=parseDMY(e.birth_date);
+    if(!bd) return null;
     const thisYear=new Date(now.getFullYear(),bd.getMonth(),bd.getDate());
     const daysUntil=Math.ceil((thisYear-now)/(1000*60*60*24));
     const normalized=daysUntil<0?daysUntil+365:daysUntil;
     return{...e,bd,daysUntil:normalized,month:bd.getMonth(),day:bd.getDate()};
-  }).sort((a,b)=>a.daysUntil-b.daysUntil);
+  }).filter(Boolean).sort((a,b)=>a.daysUntil-b.daysUntil);
 
   const upcoming=birthdays.filter(e=>e.daysUntil>=0&&e.daysUntil<=30);
   const monthsRu=t.months;
@@ -3556,9 +3561,12 @@ function DeptLimitsTable({settings,subStats,setSubStats,allEmps,theme,t}){
 // Superadmin per-dept cap on self-generated codes. Stored in settings.codeLimits ('project|dept' => max). Empty/0 →
 // generate_my_code caps at dept headcount (default). Anonymity-safe: only counts, no names.
 function CodeLimitsTable({settings,allEmps,theme,t,refreshConfig}){
-  const list=allEmps.filter(e=>e.active!=0&&e.is_head!=1);
-  const combos=[...new Set(list.map(e=>e.project+'|'+e.dept))].map(k=>{const[p,d]=k.split('|');return{project:p,dept:d,key:k};});
-  const hc={};list.forEach(e=>{const k=e.project+'|'+e.dept;hc[k]=(hc[k]||0)+1;});
+  const act=allEmps.filter(e=>e.active!=0);
+  const list=act.filter(e=>e.is_head!=1);
+  const combos=[...new Set(act.map(e=>e.project+'|'+e.dept))].map(k=>{const[p,d]=k.split('|');return{project:p,dept:d,key:k};})
+    .sort((a,b)=>(a.project+'|'+a.dept).localeCompare(b.project+'|'+b.dept));
+  const hc={};act.forEach(e=>{const k=e.project+'|'+e.dept;hc[k]=(hc[k]||0)+1;});     // реальная численность отдела
+  const cc={};list.forEach(e=>{const k=e.project+'|'+e.dept;cc[k]=(cc[k]||0)+1;});    // из них получают коды (без руководителей)
   let limits={};try{limits=JSON.parse(settings.codeLimits||'{}')||{};}catch(_){}
   const setLimit=async(key,v)=>{const obj={...limits};const n=parseInt(v)||0;if(n>0)obj[key]=n;else delete obj[key];await api('save_settings',{codeLimits:JSON.stringify(obj)});pingConfig();if(refreshConfig)await refreshConfig();};
   return(
@@ -3566,12 +3574,12 @@ function CodeLimitsTable({settings,allEmps,theme,t,refreshConfig}){
       <table className="w-full text-xs min-w-[420px]">
         <thead className={theme.thead}><tr><th className="p-3">{t.p_col}</th><th className="p-3">{t.d_col}</th><th className="p-3 text-center">{t.headcount_col}</th><th className="p-3 text-center">{t.code_limit_col}</th></tr></thead>
         <tbody className={`divide-y ${theme.divider}`}>
-          {combos.map(({project,dept,key})=>{const h=hc[key]||0;const lim=limits[key]||0;return(
+          {combos.map(({project,dept,key})=>{const h=hc[key]||0;const c=cc[key]||0;const lim=limits[key]||0;return(
             <tr key={key} className={theme.trow}>
               <td className={`p-3 ${theme.muted}`}>{project}</td>
               <td className={`p-3 font-semibold ${theme.txt}`}>{dept}</td>
-              <td className={`p-3 text-center font-black text-[#00C76E]`}>{h}</td>
-              <td className="p-3 text-center"><input type="number" min="0" defaultValue={lim||''} placeholder={String(h)} onBlur={e=>setLimit(key,e.target.value)} className={`w-16 px-2 py-1 rounded-lg text-center text-sm border outline-none focus:border-[#00C76E] ${theme.input} ${theme.txt} ${theme.border}`}/></td>
+              <td className={`p-3 text-center font-black text-[#00C76E]`}>{h}{c!==h&&<span className={`ml-1 text-[10px] font-semibold ${theme.muted}`}>({c} с кодом)</span>}</td>
+              <td className="p-3 text-center"><input type="number" min="0" defaultValue={lim||''} placeholder={String(c)} onBlur={e=>setLimit(key,e.target.value)} className={`w-16 px-2 py-1 rounded-lg text-center text-sm border outline-none focus:border-[#00C76E] ${theme.input} ${theme.txt} ${theme.border}`}/></td>
             </tr>
           );})}
         </tbody>
@@ -3971,7 +3979,7 @@ function EditVotesView({user,setView,theme,t,allEmps,rules=RULES_DEFAULT,cfg={}}
     const sc={};VKEYS.forEach(k=>{const v=row.scores?.[k]||{};sc[k]={score:v.score||0,text:v.text||'',skipped:!!v.skipped};});
     setEdit(sc);setOpenId(row.eval_to);
   };
-  const okTxt=tx=>(tx||'').trim().length>5;
+  const okTxt=tx=>(tx||'').trim().length>=CASE_MIN_CHARS;
   const okVal=v=>{if(v.skipped)return true;if(!v.score)return false;if(caseRequired(v.score,rules)&&!okTxt(v.text))return false;return true;};
   const formOk=Object.values(edit).every(okVal)&&Object.values(edit).some(v=>v.score>0||v.skipped);
   const setScore=(k,n)=>setEdit(p=>p[k].skipped?p:{...p,[k]:{...p[k],score:n}});

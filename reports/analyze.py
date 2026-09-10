@@ -324,12 +324,57 @@ deptStats=dept_or_proj_stats(lambda e:e['dept'])
 projStats=dept_or_proj_stats(lambda e:e['project'])
 
 # ---- rankings ----
-for p in people: p['rankScore']=round(p['avg']*(p['coverage']/100),3)
-# Top-15 pool: solid sample (>=5 votes) and defined coverage (excludes 4 execs whose mandated-coverage is undefined)
-eligible_top=[p for p in people if p['evCnt']>=5 and p['coverage']>0]
-top15=sorted(eligible_top,key=lambda x:(-x['rankScore'],-x['evCnt']))[:15]
+# Credibility-weighted (Bayesian) score — "best score EARNED FROM the most people".
+# WR = (v/(v+m))*R + (m/(v+m))*C  where R=person DCS, v=votes, C=company DCS, m=prior weight.
+# High score with few raters is pulled toward the company mean (not yet trustworthy); a solid score
+# confirmed by many raters rises. Fixes the old avg*coverage bias (small teams hit 100% too easily).
+BAYES_C = company['dcs']; BAYES_M = 10
+for p in people:
+    v=p['evCnt']
+    p['rankAvgCov']=round(p['avg']*(p['coverage']/100),3)     # kept for comparison/transparency
+    p['bayes']=round((v/(v+BAYES_M))*p['dcs'] + (BAYES_M/(v+BAYES_M))*BAYES_C, 2)
+non_exec=[p for p in people if not p['is_exec']]
+top15=sorted(non_exec,key=lambda x:(-x['bayes'],-x['evCnt'],-x['dcs']))[:15]
 execs=[p for p in people if p['is_exec']==1]
 execs.sort(key=lambda x:-x['dcs'])
+ranking_all=sorted(non_exec,key=lambda x:(-x['bayes'],-x['evCnt']))   # full audit list
+
+# ---- comment audit (which comments kept vs dropped) — scope = people shown in the report ----
+from collections import defaultdict
+person_ids=set(p['id'] for p in people)
+audit=defaultdict(lambda:{'total':0,'approved':0,'pending':0,'rejected':0,'scores':[],'head':0,'peer':0})
+for ev in evals_raw:
+    if ev['eval_to'] not in person_ids: continue
+    is_mgr = ev['evaluator_role']=='manager' and empById.get(ev['eval_from'])
+    for k in VKEYS:
+        v=ev['scores'].get(k) or {}
+        if v.get('skipped'): continue
+        t=(v.get('text') or '').strip()
+        if not t: continue
+        a=audit[t]; a['total']+=1
+        stt=v.get('status','pending'); a[stt]=a.get(stt,0)+1
+        if isinstance(v.get('score'),int): a['scores'].append(v['score'])
+        if is_mgr: a['head']+=1
+        else: a['peer']+=1
+comment_audit=[]
+for t,a in sorted(audit.items(), key=lambda x:-x[1]['total']):
+    scs=a['scores']
+    comment_audit.append({'text':t,'total':a['total'],'approved':a['approved'],
+        'pending':a.get('pending',0),'rejected':a['rejected'],'kept':a['approved'],
+        'excluded':a['total']-a['approved'],'lo':min(scs) if scs else None,'hi':max(scs) if scs else None,
+        'head':a['head'],'peer':a['peer']})
+comment_totals={
+  'distinct':len(comment_audit),
+  'total':sum(c['total'] for c in comment_audit),
+  'kept':sum(c['kept'] for c in comment_audit),
+  'excluded_pending':sum(c['pending'] for c in comment_audit),
+  'excluded_rejected':sum(c['rejected'] for c in comment_audit),
+}
+
+# ---- score-band distribution (over all rated people) ----
+def band(v): return 'high' if v>=8.5 else ('mid' if v>=7 else 'low')
+distribution={'high':0,'mid':0,'low':0}
+for p in people: distribution[band(p['dcs'])]+=1
 
 # ---- reporting to stdout for inspection ----
 print("=== DEPTS ==="); [print(f"  {d['name']:22.22s} dcs={d['dcs']} final={d['mgr']} peer={d['peer']} votes={d['votes']} cov={d['coverage']}%") for d in deptStats]
@@ -358,7 +403,15 @@ for i,p in enumerate(top2,1):
 with open(sys.argv[2],'w',encoding='utf-8') as f:
     json.dump({'company':company,'people':people,'deptStats':deptStats,'projStats':projStats,
                'top15':[p['id'] for p in top15],'execIds':[p['id'] for p in execs],
+               'rankingAll':[p['id'] for p in ranking_all],
+               'commentAudit':comment_audit,'commentTotals':comment_totals,'distribution':distribution,
+               'bayes':{'C':BAYES_C,'M':BAYES_M},
                'period':PERIOD,'rejectScore':RJ,
                'weights':{'finalShare':WEIGHTS['finalShare'],'execShare':WEIGHTS['execShare']}},
               f,ensure_ascii=False,indent=1)
-print("\nDumped people:",len(people))
+print("\n=== NEW TOP-15 by Bayesian (credibility-weighted) ===")
+for i,p in enumerate(top15,1):
+    print(f"{i:2d}. {p['name']:26.26s} bayes={p['bayes']:>5} dcs={p['dcs']:>4} avg={p['avg']:>4} votes={p['evCnt']:>3} cov={p['coverage']:>3}%")
+print("\n=== comment totals ===", comment_totals)
+print("=== distribution ===", distribution)
+print("Dumped people:",len(people))

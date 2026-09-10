@@ -38,6 +38,7 @@ try {
 // Every statement in the gated blocks is idempotent (CREATE IF NOT EXISTS / guarded ALTER /
 // INSERT OR IGNORE / seed-if-empty), so a single re-run on an existing prod DB is harmless;
 // afterwards normal requests skip all of it. Bump $SCHEMA_VERSION when adding a new migration.
+define('CASE_MIN_CHARS',25);   // минимальная длина обязательного кейса (дубль в index.html)
 $SCHEMA_VERSION = 10;   // v3: R2-CODES reveal_log audit table; v4: admin_sessions.auth_token (real session revoke, audit s9); v5: access_codes.project/dept (anonymous dept-pool codes, s11); v6: survey_progress (s14 §3 anonymity-safe progress monitoring); v7: s16 normalize is_executive=1 for CEO/CTO/CCO/CPO (Executive Management category); v8: Req1 seed showExecInRecommended default (Executive Managers hidden from Recommended unless enabled); v9: employees.rate_extra/rate_block (per-employee visibility/voting overrides); v10: employees.head_manual (per-head manual evaluation routing — Панель руководителей)
 $needMigrate = true;
 try { if((int)$db->query("SELECT value FROM settings WHERE key='schema_version'")->fetchColumn() >= $SCHEMA_VERSION) $needMigrate = false; }
@@ -1046,7 +1047,7 @@ case 'submit_evaluation':
         // mandatory at score>=caseHighReq (HRD R2: 8) or <=caseLow. Otherwise the API/edit-window could store a flag with no reason.
         if(!$sk && $sc>0){
             $needTxt=($rules['caseRequiredHigh'] && $sc>=$rules['caseHighReq']) || ($rules['caseRequiredLow'] && $sc<=$rules['caseLow']);
-            if($needTxt && mb_strlen(trim((string)($sv['text']??'')))<=5){ echo json_encode(['error'=>'comment_required','key'=>$k]);exit(); }
+            if($needTxt && mb_strlen(trim((string)($sv['text']??'')))<CASE_MIN_CHARS){ echo json_encode(['error'=>'comment_required','key'=>$k]);exit(); }
         }
     }
     // s13 audit #2: the row id is generated SERVER-SIDE as an opaque token (the client id is ignored). A client id

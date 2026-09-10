@@ -1,0 +1,17 @@
+# ОС / служебное
+.DS_Store
+**/.DS_Store
+*.fuse_hidden*
+
+# Локальные бэкапы и рабочие файлы базы
+data/*.db-shm
+data/*.db-wal
+data/ccs.db.bak-*
+*.bak-20*
+
+# Рабочая папка импорта HR-файла (персональные данные)
+import/
+
+# Персональные карточки сотрудников и старые копии — не в репозиторий
+reports/Culture_Cards/
+reports/_to_delete/

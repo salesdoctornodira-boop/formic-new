@@ -589,6 +589,8 @@ uz:{
   scope_label:'Baholash zonasi (kimni baholaydi)',scope_default:"Standart (rol bo'yicha)",scope_dept:"O'z bo'limi",
   scope_project:'Butun loyihasi',scope_all:'Butun kompaniya',scope_custom:"Qo'lda tanlash",
   scope_depts_label:"Bo'limlar",scope_projects_label:'Loyihalar',
+  req_group:'Required',req_depts_label:"Required bo'limlar",
+  req_depts_hint:"Bo'sh = Required faqat o'z bo'limi va loyihasi. Tanlangan bo'limlar Required bo'ladi (o'tkazib bo'lmaydi), majburiy zonaning qolgani — Highly Recommended.",
   // Constructor routing preview — shows whom this person will be REQUIRED to evaluate, live
   routing_preview_label:'Kimni baholashi shart',routing_people:'kishi',routing_preview_none:"hech kim — zona/loyihani tekshiring",
   scope_hint:"Yangi rollar (CCO, CPO...) uchun zonani aniq tanlang. «Standart» faqat tanish rol nomlarini biladi, aks holda — faqat o'z bo'limi.",
@@ -727,6 +729,8 @@ ru:{
   scope_label:'Зона оценки (кого оценивает)',scope_default:'По умолчанию (по роли)',scope_dept:'Свой отдел',
   scope_project:'Весь свой проект',scope_all:'Вся компания',scope_custom:'Выбрать вручную',
   scope_depts_label:'Отделы',scope_projects_label:'Проекты',
+  req_group:'Required',req_depts_label:'Required-отделы',
+  req_depts_hint:'Пусто = Required только свой отдел и проект. Выбранные отделы становятся Required (без «Не могу оценить»), остальная обязательная зона — Highly Recommended.',
   // Constructor routing preview — shows whom this person will be REQUIRED to evaluate, live
   routing_preview_label:'Обязан оценить',routing_people:'чел.',routing_preview_none:'никого — проверьте зону/проект',
   scope_hint:'Для новых ролей (CCO, CPO...) выберите зону явно. «По умолчанию» знает только известные названия ролей, иначе — только свой отдел.',
@@ -784,6 +788,11 @@ ru:{
 function jarr(v){ if(Array.isArray(v))return v.filter(Boolean); if(typeof v==='string'&&v.trim()){try{const x=JSON.parse(v);return Array.isArray(x)?x.filter(Boolean):[];}catch(_){return [];}} return []; }
 // All projects an employee belongs to = primary project ∪ extra projects[]. Single-project = current behaviour.
 function empProjects(e){ return [...new Set([e&&e.project,...jarr(e&&e.projects)].filter(Boolean))]; }
+// Required-зона (s18): если у оценивающего заданы req_depts — Required = эти отделы в любом проекте его обязательной
+// зоны; иначе прежнее правило «свой отдел + свой проект». Остальная обязательная зона идёт в Highly Recommended.
+function reqDeptsOf(u){ return jarr(u&&u.req_depts); }
+function isRequiredTarget(u,e){ if(!u||!e) return false; const rd=reqDeptsOf(u);
+  return rd.length ? rd.includes(e.dept) : (e.dept===u.dept&&e.project===u.project); }
 function shareProject(a,b){ const pb=new Set(empProjects(b)); return empProjects(a).some(p=>pb.has(p)); }
 // s16 §6 — Executive Management = a head with the is_executive flag (CEO/CCO/CPO/CTO; the super-admin sets it in the
 // constructor, normalized once by the v7 migration). Everyone else who is a head = Linear Manager.
@@ -1397,8 +1406,8 @@ function SurveyView({user,setView,setUser,onSubmit,evals,theme,t,allEmps,cfg,rul
   // s16 §6 — Step 1 (mandatory) is split into four labelled groups: Required (own team peers), Highly Recommended
   // (other-dept/Global peers), Linear Managers and Executive Management (the heads whose scope covers this employee).
   const mandPeers=mand.filter(e=>!(e.is_head==1));
-  const myDept=mandPeers.filter(e=>e.dept===user.dept&&e.project===user.project);
-  const other=mandPeers.filter(e=>!(e.dept===user.dept&&e.project===user.project));
+  const myDept=mandPeers.filter(e=>isRequiredTarget(user,e));
+  const other=mandPeers.filter(e=>!isRequiredTarget(user,e));
   const mandLinear=mand.filter(isLinearHead);
   const mandExec=mand.filter(isExecHead);
   // Req2: the Recommended step (Step 2) is ALWAYS open and interactive — no preliminary lock, no auto-close after
@@ -1430,7 +1439,7 @@ function SurveyView({user,setView,setUser,onSubmit,evals,theme,t,allEmps,cfg,rul
   // skippable EXACTLY like any other Highly-Recommended target (the old globalNoSkip/globalRatedByAll no-skip on
   // Global↔Global is intentionally dropped here). Only own-team (Required) colleagues stay non-skippable. The server
   // (submit_evaluation/update_my_evaluation) backstops with the same own-team gate.
-  const canSkip=info?!(info.dept===user.dept&&info.project===user.project):false;
+  const canSkip=info?!isRequiredTarget(user,info):false;
 
   // selectTarget: load draft if exists, else empty. Replaces direct setTargetId calls.
   const selectTarget=useCallback((id)=>{
@@ -1653,7 +1662,7 @@ function SurveyView({user,setView,setUser,onSubmit,evals,theme,t,allEmps,cfg,rul
           <div className="space-y-6">
             {myDept.length>0&&(
               <div>
-                <div className={`text-xs font-black uppercase tracking-widest mb-3 ${theme.muted}`}>{t.my_dept}</div>
+                <div className={`text-xs font-black uppercase tracking-widest mb-3 ${theme.muted}`}>{reqDeptsOf(user).length?t.req_group:t.my_dept}</div>
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">{myDept.map(c=><Card key={c.id} c={c}/>)}</div>
               </div>
             )}
@@ -1939,6 +1948,7 @@ function EmpProfileModal({emp,onSave,onClose,theme,t,isSuperAdmin,allEmps,cfg={}
     // M1 — multi-project + hierarchy scope (jarr handles JSON-string or array)
     projects:jarr(emp.projects),is_executive:parseInt(emp.is_executive)||0,
     scope_mode:emp.scope_mode||'',scope_projects:jarr(emp.scope_projects),scope_depts:jarr(emp.scope_depts),
+    req_depts:jarr(emp.req_depts),
     // s17 §2 — per-employee visibility/voting overrides (id arrays): rate_extra force-shown+votable, rate_block hidden+blocked
     rate_extra:jarr(emp.rate_extra),rate_block:jarr(emp.rate_block)
   });
@@ -2119,6 +2129,11 @@ function EmpProfileModal({emp,onSave,onClose,theme,t,isSuperAdmin,allEmps,cfg={}
                     </div>
                   </div>
                 )}
+                <div>
+                  <label className={`block text-xs font-semibold mb-1.5 ${theme.muted}`}>{t.req_depts_label}</label>
+                  <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto scrollbar">{deptOptions.map(d=>(<button type="button" key={d} onClick={()=>toggleIn('req_depts',d)} className={chipCls(form.req_depts.includes(d))}>{d}</button>))}</div>
+                  <p className={`text-[11px] mt-1.5 leading-4 ${theme.muted}`}>{t.req_depts_hint}</p>
+                </div>
               </div>
             )}
             {/* Live routing preview — whom this person must evaluate with the current form values */}
@@ -3988,7 +4003,7 @@ function EditVotesView({user,setView,theme,t,allEmps,rules=RULES_DEFAULT,cfg={}}
   const canSkipTarget=id=>{const tg=allEmps.find(e=>e.id===id);if(!tg)return false;
     // Mirror SurveyView canSkip: a Global "Highly Recommended" target is skippable like any other; only an own-team
     // (Required) colleague cannot be skipped.
-    return !(tg.dept===user.dept&&tg.project===user.project);};
+    return !isRequiredTarget(user,tg);};
   const saveRow=async()=>{
     setBusy(true);
     const ps={};VKEYS.forEach(k=>{const v=edit[k];ps[k]={score:v.score,text:v.text,skipped:v.skipped};});
